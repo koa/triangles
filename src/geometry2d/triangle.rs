@@ -1,13 +1,15 @@
 use std::fmt::{Debug, Formatter};
 
 use log::error;
-use num_traits::One;
+use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
 use triangulate::Vertex;
 
 use crate::geometry2d::line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine};
 use crate::geometry2d::point::Point2d;
-use crate::geometry2d::polygon::{CutSegment, LineCutIdx, Polygon2d, PolygonPath};
+use crate::geometry2d::polygon::{
+    AnyPolygon, CutSegment, LineCutIdx, PointRange, Polygon2d, PolygonPath,
+};
 use crate::primitives::Number;
 
 pub trait Triangle2d: Sized + Polygon2d {
@@ -69,9 +71,8 @@ pub trait Triangle2d: Sized + Polygon2d {
             .lines()
             .enumerate()
             .filter_map::<(usize, Number, Number), _>(|(idx, tr_line)| {
-                let l: ReferenceLine2d = tr_line;
-                let x = l.intersect(line);
-                <LineIntersection as Into<Option<(Number, Number)>>>::into(x)
+                <LineIntersection as Into<Option<(Number, Number)>>>::into(tr_line.intersect(line))
+                    .filter(|(t, _)| *t > Number::zero() && *t < Number::one())
                     .map(|(triangle_pos, polygon_pos)| (idx, triangle_pos, polygon_pos))
             })
             .collect();
@@ -167,7 +168,7 @@ pub trait Triangle2d: Sized + Polygon2d {
                                 ) = (first_cut, second_cut)
                                 {
                                     Some(CutSegment::new(
-                                        Default::default(),
+                                        PointRange::None,
                                         LineCutIdx::new(*first_idx_begin, *first_idx, *first_pos),
                                         LineCutIdx::new(*last_idx_begin, *second_idx, *second_pos),
                                     ))
@@ -184,8 +185,20 @@ pub trait Triangle2d: Sized + Polygon2d {
                                     Some((end_line_idx, _, end_polygon_pos)),
                                 ) = (start_line_cut, end_line_cut)
                                 {
+                                    let range = if *first_idx_end < *last_idx_begin {
+                                        PointRange::SingleRange {
+                                            first_idx: *first_idx_end,
+                                            last_idx: *last_idx_begin,
+                                        }
+                                    } else {
+                                        PointRange::WarpAround {
+                                            first_idx: *first_idx_end,
+                                            last_idx: *last_idx_begin,
+                                            point_count,
+                                        }
+                                    };
                                     Some(CutSegment::new(
-                                        *first_idx_end..*last_idx_begin,
+                                        range,
                                         LineCutIdx::new(
                                             *first_idx_begin,
                                             start_line_idx,
@@ -208,7 +221,11 @@ pub trait Triangle2d: Sized + Polygon2d {
                         }
                     })
                     .collect();
-                PolygonPath::CutSegments(segments)
+                if segments.is_empty() {
+                    PolygonPath::None
+                } else {
+                    PolygonPath::CutSegments(segments)
+                }
             }
         } else {
             error!("Invalid cut polygon: {cut_polygon:?}");
@@ -347,6 +364,7 @@ fn pt_is_inside(pattern: &[SideOfLine; 3]) -> bool {
 fn pt_is_outside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().any(|s| *s == SideOfLine::Right)
 }
+#[derive(Clone, PartialEq)]
 pub struct StaticTriangle2d {
     p1: Point2d,
     p2: Point2d,
@@ -361,7 +379,6 @@ impl Debug for StaticTriangle2d {
         ))
     }
 }
-
 impl StaticTriangle2d {
     pub fn new(p1: Point2d, p2: Point2d, p3: Point2d) -> Self {
         Self { p1, p2, p3 }
@@ -380,6 +397,10 @@ impl Polygon2d for StaticTriangle2d {
 
     fn point_count(&self) -> usize {
         3
+    }
+
+    fn to_any_polygon(self) -> AnyPolygon {
+        AnyPolygon::StaticTrianglePolygon(self)
     }
 
     fn get_point(&self, idx: usize) -> Option<&'_ Point2d> {
