@@ -47,6 +47,9 @@ pub trait Triangle2d: Sized + Polygon2d {
         let p3 = self.p3();
         (p1.x() * (p2.y() - p3.y()) + p2.x() * (p3.y() - p1.y()) + p3.x() * (p1.y() - p2.y())) / 2.0
     }
+    fn contains_pt(&self, p: &Point2d) -> bool {
+        self.quadrant_pattern(p) == [SideOfLine::Left, SideOfLine::Left, SideOfLine::Left]
+    }
     fn quadrant_pattern(&self, p: &Point2d) -> [SideOfLine; 3] {
         [
             self.l1().side_of_pt(p),

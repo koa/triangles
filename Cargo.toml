@@ -13,3 +13,9 @@ log = "0.4.18"
 
 [dev-dependencies]
 svg = "0.13.1"
+criterion = { version = "0.5.1", features = ["html_reports"] }
+rand = "0.8.5"
+
+[[bench]]
+name = "pt_inside_triangle"
+harness = false
