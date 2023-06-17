@@ -1,0 +1,59 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  TERM: ansi
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Cache Cargo
+      id: cache-cargo
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo
+        key: ${{ runner.os }}-cargo-1
+    - name: Install rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.66.0
+        components: clippy, clippy-sarif, sarif-fmt
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Cache Target
+      uses: actions/cache@v3
+      with:
+        path: |
+          target/
+
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run rust-clippy
+      run:
+        cargo clippy
+        --all-features
+        --message-format=json |clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+      continue-on-error: true
+    - name: Upload analysis results to GitHub
+      uses: github/codeql-action/upload-sarif@v2
+      continue-on-error: true
+      with:
+        sarif_file: rust-clippy-results.sarif
+        wait-for-processing: true
+
+    - name: Run tests
+      run:
+        cargo test --all-features
+
+    - name: Build Deploy Artifact
+      run: cargo build --release
