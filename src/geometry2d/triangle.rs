@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 use log::error;
 use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
-use triangulate::Vertex;
 
 use crate::geometry2d::line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine};
 use crate::geometry2d::point::Point2d;
@@ -88,7 +87,7 @@ pub trait Triangle2d: Sized + Polygon2d {
         let mut poly_point_iter = cut_polygon.points().enumerate();
         if let Some((_, first_poly_pt)) = poly_point_iter.next() {
             let mut last_poly_pt = first_poly_pt;
-            let mut last_pattern = self.quadrant_pattern(&last_poly_pt);
+            let mut last_pattern = self.quadrant_pattern(last_poly_pt);
             let mut current_polygon = if pt_is_inside(&last_pattern) {
                 Some(vec![(0, *first_poly_pt)])
             } else {

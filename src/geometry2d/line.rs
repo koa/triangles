@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 
 use num_traits::Zero;
 use ordered_float::OrderedFloat;
-use triangulate::Vertex;
 
 use crate::geometry2d::point::Point2d;
 use crate::geometry2d::vector::Vector2d;
@@ -84,6 +83,7 @@ pub trait Line2d: Sized + Debug {
         f.write_fmt(format_args!("({:?})-({:?})", line.p1(), line.p2()))
     }*/
 }
+#[inline]
 fn same_height_as_endpoint_cases(own_x_compare: Ordering, other_y_compare: Ordering) -> HitSide {
     match (own_x_compare, other_y_compare) {
         (_, Ordering::Equal) => panic!("Math Error"),
