@@ -146,7 +146,7 @@ pub trait Triangle2d: Sized + Polygon2d {
                             Some((first_idx_begin, first_pt_begin)),
                             Some((first_idx_end, first_pt_end)),
                             Some((last_idx_begin, last_pt_begin)),
-                            Some((last_idx_end, last_pt_end)),
+                            Some((_, last_pt_end)),
                         ) = (
                             polygon.get(0),
                             polygon.get(1),

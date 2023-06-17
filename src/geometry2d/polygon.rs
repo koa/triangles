@@ -3,7 +3,7 @@ use std::slice::Iter;
 #[cfg(test)]
 use svg::node::element::path::Data;
 
-use crate::geometry2d::line::ReferenceLine2d;
+use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
 #[cfg(test)]
 use crate::geometry2d::point::BoundingBoxSvg;
 use crate::geometry2d::point::Point2d;
@@ -27,6 +27,33 @@ pub trait Polygon2d: Sized + Clone {
     fn get_point(&self, idx: usize) -> Option<&Point2d>;
     fn lines(&self) -> PolygonLineIterator<Self::PointIter<'_>> {
         PolygonLineIterator::new(self.points())
+    }
+    fn point_position(&self, p: &Point2d) -> PointPolygonRelationship {
+        let mut right_count = 0;
+        for line in self.lines() {
+            match line.y_cross_side(p) {
+                HitSide::None => {}
+                HitSide::OnLine => {
+                    return PointPolygonRelationship::OnEdge;
+                }
+                HitSide::Left => {}
+                HitSide::Right => {
+                    right_count += 1;
+                }
+
+                HitSide::LeftTop => {}
+                HitSide::LeftBottom => {}
+                HitSide::RightTop => {
+                    right_count += 1;
+                }
+                HitSide::RightBottom => {}
+            }
+        }
+        if right_count % 2 == 0 {
+            PointPolygonRelationship::Outside
+        } else {
+            PointPolygonRelationship::Inside
+        }
     }
     #[cfg(test)]
     fn plot(&self, bbox: &BoundingBoxSvg) -> Option<Data> {
@@ -122,6 +149,13 @@ pub enum PolygonPath {
     Enclosed,
     CutSegments(Vec<CutSegment>),
     None,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum PointPolygonRelationship {
+    Inside,
+    Outside,
+    OnEdge,
 }
 
 #[derive(Debug)]
@@ -347,12 +381,14 @@ impl Polygon2d for AnyPolygon {
 
 #[cfg(test)]
 mod test {
-    use crate::geometry2d::polygon::PointRange;
+    use crate::geometry2d::point::Point2d;
+    use crate::geometry2d::polygon::{PointPolygonRelationship, PointRange, Polygon2d};
 
     #[test]
     fn test_point_range() {
         let mut empty_iterator = PointRange::None.iter();
         assert_eq!(None, empty_iterator.next());
+
         let mut strait_iterator = PointRange::SingleRange {
             first_idx: 1,
             last_idx: 2,
@@ -372,5 +408,60 @@ mod test {
         assert_eq!(Some(0), wrap_iterator.next());
         assert_eq!(Some(1), wrap_iterator.next());
         assert_eq!(None, wrap_iterator.next());
+    }
+
+    #[test]
+    fn test_polygon_point() {
+        let polygon: Vec<Point2d> = vec![
+            (0.0, 0.0).into(),
+            (1.0, 0.0).into(),
+            (1.0, 1.0).into(),
+            (0.0, 1.0).into(),
+        ];
+        assert_eq!(
+            PointPolygonRelationship::Inside,
+            polygon.point_position(&(0.5, 0.5).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::Outside,
+            polygon.point_position(&(-0.5, 0.5).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::Outside,
+            polygon.point_position(&(1.5, 0.5).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::Outside,
+            polygon.point_position(&(0.5, -0.5).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::Outside,
+            polygon.point_position(&(0.5, 1.5).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::Outside,
+            polygon.point_position(&(-0.5, 0.0).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::Outside,
+            polygon.point_position(&(1.5, 0.0).into())
+        );
+
+        assert_eq!(
+            PointPolygonRelationship::OnEdge,
+            polygon.point_position(&(0.5, 0.0).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::OnEdge,
+            polygon.point_position(&(0.0, 0.5).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::OnEdge,
+            polygon.point_position(&(0.0, 0.0).into())
+        );
+        assert_eq!(
+            PointPolygonRelationship::OnEdge,
+            polygon.point_position(&(1.0, 1.0).into())
+        );
     }
 }

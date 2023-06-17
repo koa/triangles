@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use ordered_float::OrderedFloat;
 use svg::node::element::path::Data;
 use svg::node::element::Path;
@@ -214,7 +212,7 @@ fn test_polygon_intersection() {
     let small_triangle = StaticTriangle2d::new(
         (-50.0, 25.0).into(),
         (50.0, 25.0).into(),
-        (0.0, -25.0).into(),
+        (0.0, -75.0).into(),
     );
 
     let cut_polygon = &small_triangle;

@@ -13,8 +13,8 @@ use crate::primitives::{Float, Number};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Point2d {
-    x: Number,
-    y: Number,
+    pub x: Number,
+    pub y: Number,
 }
 
 #[cfg(test)]

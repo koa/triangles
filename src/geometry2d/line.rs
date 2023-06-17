@@ -54,10 +54,56 @@ pub trait Line2d: Sized + Debug {
             LineIntersection::None
         }
     }
+    fn y_cross_side(&self, p: &Point2d) -> HitSide {
+        let Point2d { x, y } = *p;
+        let Point2d { x: x1, y: y1 } = *self.p1();
+        let Point2d { x: x2, y: y2 } = *self.p2();
+        if Number::min(y1, y2) > y || Number::max(y1, y2) < y {
+            HitSide::None
+        } else if y1 == y2 {
+            if Number::min(x1, x2) > x || Number::max(x1, x2) < x {
+                HitSide::None
+            } else {
+                HitSide::OnLine
+            }
+        } else if y == y1 {
+            same_height_as_endpoint_cases(x.cmp(&x1), y.cmp(&y2))
+        } else if y == y2 {
+            same_height_as_endpoint_cases(x.cmp(&x2), y.cmp(&y1))
+        } else {
+            let x_cross = x1 + ((x2 - x1) / (y2 - y1)) * (y - y1);
+            match x.cmp(&x_cross) {
+                Ordering::Less => HitSide::Left,
+                Ordering::Equal => HitSide::OnLine,
+                Ordering::Greater => HitSide::Right,
+            }
+        }
+    }
 
     /*fn debug_fmt<L: Line2d>(line: &L, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("({:?})-({:?})", line.p1(), line.p2()))
     }*/
+}
+fn same_height_as_endpoint_cases(own_x_compare: Ordering, other_y_compare: Ordering) -> HitSide {
+    match (own_x_compare, other_y_compare) {
+        (_, Ordering::Equal) => panic!("Math Error"),
+        (Ordering::Equal, _) => HitSide::OnLine,
+        (Ordering::Less, Ordering::Greater) => HitSide::LeftTop,
+        (Ordering::Less, Ordering::Less) => HitSide::LeftBottom,
+        (Ordering::Greater, Ordering::Greater) => HitSide::RightTop,
+        (Ordering::Greater, Ordering::Less) => HitSide::RightBottom,
+    }
+}
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum HitSide {
+    None,
+    OnLine,
+    Left,
+    Right,
+    LeftTop,
+    LeftBottom,
+    RightTop,
+    RightBottom,
 }
 
 pub enum LineIntersection {
@@ -148,5 +194,61 @@ impl Line2d for (&Point2d, &Point2d) {
 
     fn p2(&self) -> &Point2d {
         self.1
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::geometry2d::line::{HitSide, Line2d, StaticLine2d};
+
+    #[test]
+    fn test_point_line_positive() {
+        let line = StaticLine2d::new((1.0, 1.0).into(), (2.0, 2.0).into());
+
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 0.0).into()));
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 3.0).into()));
+
+        assert_eq!(HitSide::Left, line.y_cross_side(&(0.0, 1.5).into()));
+        assert_eq!(HitSide::OnLine, line.y_cross_side(&(1.5, 1.5).into()));
+        assert_eq!(HitSide::Right, line.y_cross_side(&(2.0, 1.5).into()));
+
+        assert_eq!(HitSide::LeftBottom, line.y_cross_side(&(0.0, 1.0).into()));
+        assert_eq!(HitSide::OnLine, line.y_cross_side(&(1.0, 1.0).into()));
+        assert_eq!(HitSide::RightBottom, line.y_cross_side(&(2.0, 1.0).into()));
+
+        assert_eq!(HitSide::LeftTop, line.y_cross_side(&(1.0, 2.0).into()));
+        assert_eq!(HitSide::OnLine, line.y_cross_side(&(2.0, 2.0).into()));
+        assert_eq!(HitSide::RightTop, line.y_cross_side(&(3.0, 2.0).into()));
+    }
+    #[test]
+    fn test_point_line_negative() {
+        let line = StaticLine2d::new((2.0, 1.0).into(), (1.0, 2.0).into());
+
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 0.0).into()));
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 3.0).into()));
+
+        assert_eq!(HitSide::Left, line.y_cross_side(&(0.0, 1.5).into()));
+        assert_eq!(HitSide::OnLine, line.y_cross_side(&(1.5, 1.5).into()));
+        assert_eq!(HitSide::Right, line.y_cross_side(&(2.0, 1.5).into()));
+
+        assert_eq!(HitSide::LeftBottom, line.y_cross_side(&(0.0, 1.0).into()));
+        assert_eq!(HitSide::OnLine, line.y_cross_side(&(2.0, 1.0).into()));
+        assert_eq!(HitSide::RightBottom, line.y_cross_side(&(3.0, 1.0).into()));
+    }
+    #[test]
+    fn test_point_line_horizontal() {
+        let line = StaticLine2d::new((2.0, 1.0).into(), (1.0, 1.0).into());
+
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 0.0).into()));
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 2.0).into()));
+
+        assert_eq!(HitSide::None, line.y_cross_side(&(0.0, 1.0).into()));
+        assert_eq!(HitSide::OnLine, line.y_cross_side(&(1.5, 1.0).into()));
+        assert_eq!(HitSide::None, line.y_cross_side(&(3.0, 1.0).into()));
+    }
+    #[test]
+    fn test_point_line_vertical() {
+        let line = StaticLine2d::new((1.0, 0.0).into(), (1.0, 1.0).into());
+        assert_eq!(HitSide::RightBottom, line.y_cross_side(&(1.5, 0.0).into()));
     }
 }
