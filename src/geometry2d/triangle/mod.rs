@@ -273,7 +273,8 @@ pub trait Triangle2d: Sized + Polygon2d {
                 todo!()
             }
             PolygonPath::CutSegments(segments) => {
-                walk_shape_recursive(segments).map(|polygon: Vec<TraceResultPoint>| {
+                let [p1, _p2] = walk_shape_recursive(segments);
+                p1.map(|polygon: Vec<TraceResultPoint>| {
                     polygon.map(|point| match point {
                         TraceResultPoint::Corner(p) => *self.point(p),
                         TraceResultPoint::PolygonPoint(p) => *cut_polygon.get_point(p).unwrap(),
@@ -449,10 +450,11 @@ impl<'a, T: Triangle2d> Iterator for TriangleLineIterator<'a, T> {
 fn pt_is_inside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().all(|s| *s == SideOfLine::Left)
 }
+/*
 fn pt_is_outside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().any(|s| *s == SideOfLine::Right)
 }
-
+*/
 mod static_triangle;
 #[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
 pub enum TriangleCornerPoint {

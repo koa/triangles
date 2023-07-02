@@ -1,4 +1,5 @@
 use ordered_float::OrderedFloat;
+use std::io::BufRead;
 use svg::node::element::path::Data;
 use svg::node::element::Path;
 use svg::Document;
@@ -215,7 +216,8 @@ fn test_polygon_intersection() {
         (0.0, -25.0).into(),
         (50.0, 25.0).into(),
     );
-
+    let small_triangle =
+        StaticTriangle2d::new((0.0, 50.0).into(), (0.0, 25.0).into(), (-50.0, 50.0).into());
     let cut_polygon = &small_triangle;
     let path = big_triangle.cut(cut_polygon);
     println!("Path: {path:?}");
@@ -246,7 +248,7 @@ fn test_polygon_intersection() {
     }
 
     let mut colors = ["blue", "green"].iter().cycle();
-    let mut show = [true, false].iter().cycle();
+    let mut show = [true, true].iter().cycle();
     for polygon in big_triangle.compose_cut_polygons(&small_triangle, &path) {
         let stroke = colors.next().unwrap();
         let show = show.next().unwrap();

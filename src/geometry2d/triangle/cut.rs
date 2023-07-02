@@ -132,9 +132,6 @@ impl<'a> WalkIndex<'a> {
             }));
         }
         edge_points.sort();
-        for (idx, p) in edge_points.iter().enumerate() {
-            println!("[{idx}]: {p:?}");
-        }
         let mut edge_peers = vec![None; edge_points.len()];
         for (idx, p) in edge_points.iter().enumerate() {
             if edge_peers
@@ -174,20 +171,20 @@ impl<'a> WalkIndex<'a> {
     }
 }
 
-pub fn walk_shape_recursive(segments: &[CutSegment]) -> Vec<Vec<TraceResultPoint>> {
+pub fn walk_shape_recursive(segments: &[CutSegment]) -> [Vec<Vec<TraceResultPoint>>; 2] {
     let mut startpoint_stack = Vec::with_capacity(3);
-    startpoint_stack.push(0);
+    startpoint_stack.push((0, 0));
     let walker = WalkIndex::new(segments);
-    let mut result = Vec::with_capacity(1);
-    while let Some(idx) = startpoint_stack.pop() {
+    let mut result = [Vec::with_capacity(1), Vec::new()];
+    while let Some((idx, target_idx)) = startpoint_stack.pop() {
         let mut trace_path = Vec::new();
-        let mut last_idx = None;
-        let mut next_idx = idx;
-        while last_idx.is_none() || next_idx != idx {
-            let current_idx = match walker.entry(next_idx) {
+        let mut first = true;
+        let mut current_idx = idx;
+        while first || current_idx != idx {
+            let last_idx = match walker.entry(current_idx) {
                 TriangleEdgePoint::Corner(p) => {
                     trace_path.push(TraceResultPoint::Corner(*p));
-                    next_idx
+                    current_idx
                 }
                 TriangleEdgePoint::AlongSide(side) => {
                     let (c1, i, c2) = match side.direction {
@@ -217,18 +214,18 @@ pub fn walk_shape_recursive(segments: &[CutSegment]) -> Vec<Vec<TraceResultPoint
                         along_triangle: c2.triangle_pos(),
                         along_polygon: c2.polygon_pos(),
                     });
-                    let next_idx = walker.peer_of(next_idx).expect("data error");
-                    if last_idx.is_some() {
-                        startpoint_stack.push(next_idx);
+                    let next_idx = walker.peer_of(current_idx).expect("data error");
+                    if !first {
+                        startpoint_stack.push((next_idx, (target_idx + 1) % 2));
                     }
                     next_idx
                 }
             };
-            last_idx = Some(current_idx);
-            next_idx = walker.next_pos(current_idx);
+            current_idx = walker.next_pos(last_idx);
+            first = false;
         }
         trace_path.truncate(trace_path.len());
-        result.push(trace_path);
+        result[target_idx].push(trace_path);
     }
     result
 }
