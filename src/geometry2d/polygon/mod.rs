@@ -7,12 +7,11 @@ use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
 #[cfg(test)]
 use crate::geometry2d::point::BoundingBoxSvg;
 use crate::geometry2d::point::Point2d;
-use crate::geometry2d::triangle::TrianglePointIterator;
-use crate::geometry2d::StaticTriangle2d;
-use crate::primitives::Number;
+use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange, PointRangeIterator};
+use crate::geometry2d::triangle::{StaticTriangle2d, TrianglePointIterator};
 
 pub trait Polygon2d: Sized + Clone {
-    type PointIter<'a>: Iterator<Item = &'a Point2d>
+    type PointIter<'a>: Iterator<Item = &'a Point2d> + Clone
     where
         Self: 'a;
     fn points(&self) -> Self::PointIter<'_>;
@@ -93,7 +92,8 @@ impl<'a, P: Polygon2d> Iterator for PolygonRangeIterator<'a, P> {
     }
 }
 
-pub enum PolygonLineIterator<'a, I: Iterator<Item = &'a Point2d>> {
+#[derive(Clone)]
+pub enum PolygonLineIterator<'a, I: Iterator<Item = &'a Point2d> + Clone> {
     Found {
         iterator: I,
         first_point: &'a Point2d,
@@ -103,7 +103,7 @@ pub enum PolygonLineIterator<'a, I: Iterator<Item = &'a Point2d>> {
     Empty,
 }
 
-impl<'a, I: Iterator<Item = &'a Point2d>> Iterator for PolygonLineIterator<'a, I> {
+impl<'a, I: Iterator<Item = &'a Point2d> + Clone> Iterator for PolygonLineIterator<'a, I> {
     type Item = ReferenceLine2d<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -130,7 +130,7 @@ impl<'a, I: Iterator<Item = &'a Point2d>> Iterator for PolygonLineIterator<'a, I
     }
 }
 
-impl<'a, I: Iterator<Item = &'a Point2d>> PolygonLineIterator<'a, I> {
+impl<'a, I: Iterator<Item = &'a Point2d> + Clone> PolygonLineIterator<'a, I> {
     fn new(mut iterator: I) -> Self {
         if let Some(first_point) = iterator.next() {
             PolygonLineIterator::Found {
@@ -144,166 +144,8 @@ impl<'a, I: Iterator<Item = &'a Point2d>> PolygonLineIterator<'a, I> {
         }
     }
 }
-#[derive(Debug)]
-pub enum PolygonPath {
-    Enclosed,
-    CutSegments(Vec<CutSegment>),
-    None,
-}
 
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum PointPolygonRelationship {
-    Inside,
-    Outside,
-    OnEdge,
-}
-
-#[derive(Debug)]
-pub struct CutSegment {
-    copy_points: PointRange,
-    start_cut: LineCutIdx,
-    end_cut: LineCutIdx,
-}
-#[derive(Debug)]
-pub enum PointRange {
-    None,
-    SingleRange {
-        first_idx: usize,
-        last_idx: usize,
-    },
-    WarpAround {
-        first_idx: usize,
-        last_idx: usize,
-        point_count: usize,
-    },
-}
-
-impl PointRange {
-    fn iter(&self) -> PointRangeIterator {
-        match self {
-            PointRange::None => PointRangeIterator::None,
-            PointRange::SingleRange {
-                first_idx,
-                last_idx,
-            } => PointRangeIterator::SingleRange {
-                next_value: Some(*first_idx),
-                last_idx: *last_idx,
-            },
-            PointRange::WarpAround {
-                first_idx,
-                last_idx,
-                point_count,
-            } => PointRangeIterator::WarpAround {
-                last_idx: *last_idx,
-                point_count: *point_count,
-                next_value: Some(*first_idx),
-            },
-        }
-    }
-}
-
-pub enum PointRangeIterator {
-    None,
-    SingleRange {
-        last_idx: usize,
-        next_value: Option<usize>,
-    },
-    WarpAround {
-        last_idx: usize,
-        point_count: usize,
-        next_value: Option<usize>,
-    },
-}
-
-impl Iterator for PointRangeIterator {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            PointRangeIterator::None => None,
-            PointRangeIterator::SingleRange {
-                last_idx,
-                next_value,
-            } => {
-                if let Some(value) = next_value.clone() {
-                    *next_value = if value < *last_idx {
-                        Some(value + 1)
-                    } else {
-                        None
-                    };
-                    Some(value)
-                } else {
-                    None
-                }
-            }
-            PointRangeIterator::WarpAround {
-                last_idx,
-                point_count,
-                next_value,
-            } => {
-                if let Some(value) = *next_value {
-                    *next_value = if value == *last_idx {
-                        None
-                    } else if value < *point_count - 1 {
-                        Some(value + 1)
-                    } else {
-                        Some(0)
-                    };
-                    Some(value)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-impl CutSegment {
-    pub fn new(copy_points: PointRange, start_cut: LineCutIdx, end_cut: LineCutIdx) -> Self {
-        Self {
-            copy_points,
-            start_cut,
-            end_cut,
-        }
-    }
-
-    pub fn start_cut(&self) -> &LineCutIdx {
-        &self.start_cut
-    }
-    pub fn end_cut(&self) -> &LineCutIdx {
-        &self.end_cut
-    }
-    pub fn copy_points(&self) -> &PointRange {
-        &self.copy_points
-    }
-}
-
-#[derive(Debug)]
-pub struct LineCutIdx {
-    start_pt_idx: usize,
-    triangle_line_idx: usize,
-    cut_pos: Number,
-}
-
-impl LineCutIdx {
-    pub fn new(start_pt_idx: usize, triangle_line_idx: usize, cut_pos: Number) -> Self {
-        Self {
-            start_pt_idx,
-            triangle_line_idx,
-            cut_pos,
-        }
-    }
-
-    pub fn start_pt_idx(&self) -> usize {
-        self.start_pt_idx
-    }
-    pub fn triangle_line_idx(&self) -> usize {
-        self.triangle_line_idx
-    }
-    pub fn cut_pos(&self) -> Number {
-        self.cut_pos
-    }
-}
+pub mod cut;
 
 impl Polygon2d for Vec<Point2d> {
     type PointIter<'a>
@@ -332,6 +174,7 @@ pub enum AnyPolygon {
     VecPointPolygon(Vec<Point2d>),
     StaticTrianglePolygon(StaticTriangle2d),
 }
+#[derive(Debug, Clone)]
 pub enum AnyPolygonPointIter<'a> {
     VecPointPolygon(Iter<'a, Point2d>),
     StaticTrianglePolygon(TrianglePointIterator<'a, StaticTriangle2d>),
@@ -382,7 +225,8 @@ impl Polygon2d for AnyPolygon {
 #[cfg(test)]
 mod test {
     use crate::geometry2d::point::Point2d;
-    use crate::geometry2d::polygon::{PointPolygonRelationship, PointRange, Polygon2d};
+    use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange};
+    use crate::geometry2d::polygon::Polygon2d;
 
     #[test]
     fn test_point_range() {
@@ -407,6 +251,31 @@ mod test {
         assert_eq!(Some(2), wrap_iterator.next());
         assert_eq!(Some(0), wrap_iterator.next());
         assert_eq!(Some(1), wrap_iterator.next());
+        assert_eq!(None, wrap_iterator.next());
+    }
+    #[test]
+    fn test_point_range_reverse() {
+        let mut empty_iterator = PointRange::None.reverse_iter();
+        assert_eq!(None, empty_iterator.next());
+
+        let mut strait_iterator = PointRange::SingleRange {
+            first_idx: 1,
+            last_idx: 2,
+        }
+        .reverse_iter();
+        assert_eq!(Some(2), strait_iterator.next());
+        assert_eq!(Some(1), strait_iterator.next());
+        assert_eq!(None, strait_iterator.next());
+
+        let mut wrap_iterator = PointRange::WarpAround {
+            first_idx: 2,
+            last_idx: 1,
+            point_count: 3,
+        }
+        .reverse_iter();
+        assert_eq!(Some(1), wrap_iterator.next());
+        assert_eq!(Some(0), wrap_iterator.next());
+        assert_eq!(Some(2), wrap_iterator.next());
         assert_eq!(None, wrap_iterator.next());
     }
 

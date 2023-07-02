@@ -1,6 +1,6 @@
 pub use point::Point2d;
 pub use polygon::Polygon2d;
-pub use triangle::{StaticTriangle2d, Triangle2d};
+pub use triangle::Triangle2d;
 
 mod line;
 mod point;

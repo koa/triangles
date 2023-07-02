@@ -3,12 +3,15 @@ use std::fmt::{Debug, Formatter};
 use log::error;
 use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
+use triangulate::Mappable;
+
+pub use static_triangle::StaticTriangle2d;
 
 use crate::geometry2d::line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine};
 use crate::geometry2d::point::Point2d;
-use crate::geometry2d::polygon::{
-    AnyPolygon, CutSegment, LineCutIdx, PointRange, Polygon2d, PolygonPath,
-};
+use crate::geometry2d::polygon::cut::{CutSegment, LineCutIdx, PointRange, PolygonPath};
+use crate::geometry2d::polygon::Polygon2d;
+use crate::geometry2d::triangle::cut::{walk_shape_recursive, TraceResultPoint};
 use crate::primitives::Number;
 
 pub trait Triangle2d: Sized + Polygon2d {
@@ -23,6 +26,20 @@ pub trait Triangle2d: Sized + Polygon2d {
     }
     fn l3(&self) -> (&Point2d, &Point2d) {
         (self.p3(), self.p1())
+    }
+    fn point(&self, p: TriangleCornerPoint) -> &Point2d {
+        match p {
+            TriangleCornerPoint::P1 => self.p1(),
+            TriangleCornerPoint::P2 => self.p2(),
+            TriangleCornerPoint::P3 => self.p3(),
+        }
+    }
+    fn side(&self, p: TriangleSide) -> (&Point2d, &Point2d) {
+        match p {
+            TriangleSide::S1 => self.l1(),
+            TriangleSide::S2 => self.l2(),
+            TriangleSide::S3 => self.l3(),
+        }
     }
     /*
     fn points(&self) -> TrianglePointIterator<'_, Self> {
@@ -57,25 +74,25 @@ pub trait Triangle2d: Sized + Polygon2d {
         ]
     }
 
-    fn find_cutting_edge<L: Line2d>(&self, line: &L) -> Option<(usize, Number, Number)> {
+    fn find_cutting_edge<L: Line2d>(&self, line: &L) -> Option<(TriangleSide, Number, Number)> {
         self.lines()
             .enumerate()
-            .filter_map::<(usize, Number, Number), _>(|(idx, tr_line)| {
+            .filter_map::<(TriangleSide, Number, Number), _>(|(idx, tr_line)| {
                 let l: ReferenceLine2d = tr_line;
                 let x = l.intersect(line);
                 <LineIntersection as Into<Option<(Number, Number)>>>::into(x)
-                    .map(|(triangle_pos, polygon_pos)| (idx, triangle_pos, polygon_pos))
+                    .map(|(triangle_pos, polygon_pos)| (idx.into(), triangle_pos, polygon_pos))
             })
             .max_by_key(|(_, pos, _)| (*pos).min(Number::one() - *pos))
     }
-    fn find_cutting_edges<L: Line2d>(&self, line: &L) -> Vec<(usize, Number, Number)> {
+    fn find_cutting_edges<L: Line2d>(&self, line: &L) -> Vec<(TriangleSide, Number, Number)> {
         let mut edges: Vec<_> = self
             .lines()
             .enumerate()
-            .filter_map::<(usize, Number, Number), _>(|(idx, tr_line)| {
+            .filter_map::<(TriangleSide, Number, Number), _>(|(idx, tr_line)| {
                 <LineIntersection as Into<Option<(Number, Number)>>>::into(tr_line.intersect(line))
                     .filter(|(t, _)| *t > Number::zero() && *t < Number::one())
-                    .map(|(triangle_pos, polygon_pos)| (idx, triangle_pos, polygon_pos))
+                    .map(|(triangle_pos, polygon_pos)| (idx.into(), triangle_pos, polygon_pos))
             })
             .collect();
         edges.sort_by_key(|(_, pos, _)| -(*pos).min(Number::one() - *pos));
@@ -83,7 +100,7 @@ pub trait Triangle2d: Sized + Polygon2d {
     }
 
     fn cut<P: Polygon2d + Debug>(&self, cut_polygon: &P) -> PolygonPath {
-        assert!(self.area() > OrderedFloat::from(0.0));
+        assert!(self.area() > OrderedFloat::zero());
         let mut poly_point_iter = cut_polygon.points().enumerate();
         if let Some((_, first_poly_pt)) = poly_point_iter.next() {
             let mut last_poly_pt = first_poly_pt;
@@ -165,14 +182,24 @@ pub trait Triangle2d: Sized + Polygon2d {
                                 let first_cut = iter.next();
                                 let second_cut = iter.next();
                                 if let (
-                                    Some((first_idx, _, first_pos)),
-                                    Some((second_idx, _, second_pos)),
+                                    Some((first_idx, first_triangle_pos, first_pos)),
+                                    Some((second_idx, second_triangle_pos, second_pos)),
                                 ) = (first_cut, second_cut)
                                 {
                                     Some(CutSegment::new(
                                         PointRange::None,
-                                        LineCutIdx::new(*first_idx_begin, *first_idx, *first_pos),
-                                        LineCutIdx::new(*last_idx_begin, *second_idx, *second_pos),
+                                        LineCutIdx::new(
+                                            *first_idx_begin,
+                                            *first_idx as TriangleSide,
+                                            *first_pos,
+                                            *first_triangle_pos,
+                                        ),
+                                        LineCutIdx::new(
+                                            *last_idx_begin,
+                                            *second_idx,
+                                            *second_pos,
+                                            *second_triangle_pos,
+                                        ),
                                     ))
                                 } else {
                                     None
@@ -183,8 +210,8 @@ pub trait Triangle2d: Sized + Polygon2d {
                                 let end_line = ReferenceLine2d::new(last_pt_begin, last_pt_end);
                                 let end_line_cut = self.find_cutting_edge(&end_line);
                                 if let (
-                                    Some((start_line_idx, _, start_polygon_pos)),
-                                    Some((end_line_idx, _, end_polygon_pos)),
+                                    Some((start_line_idx, start_trigangle_pos, start_polygon_pos)),
+                                    Some((end_line_idx, end_triangle_pos, end_polygon_pos)),
                                 ) = (start_line_cut, end_line_cut)
                                 {
                                     let range = if *first_idx_end < *last_idx_begin {
@@ -205,11 +232,13 @@ pub trait Triangle2d: Sized + Polygon2d {
                                             *first_idx_begin,
                                             start_line_idx,
                                             start_polygon_pos,
+                                            start_trigangle_pos,
                                         ),
                                         LineCutIdx::new(
                                             *last_idx_begin,
                                             end_line_idx,
                                             end_polygon_pos,
+                                            end_triangle_pos,
                                         ),
                                     ))
                                 } else {
@@ -234,13 +263,95 @@ pub trait Triangle2d: Sized + Polygon2d {
             PolygonPath::None
         }
     }
+    fn compose_cut_polygons<P: Polygon2d + Debug>(
+        &self,
+        cut_polygon: &P,
+        path: &PolygonPath,
+    ) -> Vec<Vec<Point2d>> {
+        match path {
+            PolygonPath::Enclosed => {
+                todo!()
+            }
+            PolygonPath::CutSegments(segments) => walk_shape_recursive(self, cut_polygon, segments)
+                .map(|polygon: Vec<TraceResultPoint>| {
+                    polygon.map(|point| match point {
+                        TraceResultPoint::Corner(p) => *self.point(p),
+                        TraceResultPoint::PolygonPoint(p) => *cut_polygon.get_point(p).unwrap(),
+                        TraceResultPoint::CrossPoint {
+                            triangle_side,
+                            polygon_side,
+                            along_triangle,
+                            along_polygon,
+                        } => self.side(triangle_side).pt_along(along_triangle),
+                    })
+                }),
+            PolygonPath::None => {
+                todo!()
+            }
+        }
+    }
 }
-#[derive(Debug)]
+#[derive(Default, Copy, Clone)]
+pub struct CrosspointVisited {
+    to_polygon: bool,
+    to_triangle: bool,
+}
+
+impl CrosspointVisited {
+    fn visit_to_polygon(&mut self) {
+        assert!(!self.to_polygon);
+        self.to_polygon = true;
+    }
+    fn visit_to_triangle(&mut self) {
+        assert!(!self.to_triangle);
+        self.to_triangle = true;
+    }
+    fn fully_visited(&self) -> bool {
+        self.to_polygon && self.to_triangle
+    }
+}
+#[derive(Copy, Clone, Debug)]
+pub struct TrianglePointReference {
+    line_idx: u8,
+    relative_position: RelativeLinePosition,
+}
+#[derive(Copy, Clone, Debug)]
+enum RelativeLinePosition {
+    Start,
+    End,
+    Crossing { cross_idx: u32, along: Number },
+}
+
+impl PartialEq for RelativeLinePosition {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            RelativeLinePosition::Start => matches!(other, RelativeLinePosition::Start),
+            RelativeLinePosition::End => matches!(other, RelativeLinePosition::End),
+            RelativeLinePosition::Crossing {
+                cross_idx: idx1, ..
+            } => {
+                if let RelativeLinePosition::Crossing {
+                    cross_idx: idx2, ..
+                } = other
+                {
+                    idx1 == idx2
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+mod cut;
+
+#[derive(Debug, Clone)]
 pub struct TrianglePointIterator<'a, T: Triangle2d> {
     triangle: &'a T,
     state: TriangleIteratorState,
 }
-#[derive(Default, Debug)]
+
+#[derive(Default, Debug, Copy, Clone)]
 enum TriangleIteratorState {
     #[default]
     P1,
@@ -248,6 +359,7 @@ enum TriangleIteratorState {
     P3,
     BeyondLast,
 }
+
 impl TriangleIteratorState {
     fn next_state(&self) -> Self {
         match self {
@@ -266,6 +378,7 @@ impl TriangleIteratorState {
         }
     }
 }
+
 impl<'a, T: Triangle2d> Iterator for TrianglePointIterator<'a, T> {
     type Item = &'a Point2d;
 
@@ -285,6 +398,7 @@ impl<'a, T: Triangle2d> Iterator for TrianglePointIterator<'a, T> {
         (remaining_count, Some(remaining_count))
     }
 }
+
 impl<T: Triangle2d> ExactSizeIterator for TrianglePointIterator<'_, T> {
     fn len(&self) -> usize {
         self.state.remaining_count()
@@ -319,17 +433,39 @@ impl<'a, T: Triangle2d> Line2d for TriangleLine<'a, T> {
         }
     }
 }
+
 impl<'a, T: Triangle2d> Debug for TriangleLine<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("({:?})-({:?})", self.p1(), self.p2()))
     }
 }
 
-#[derive(Debug)]
-enum TriangleSide {
-    S1,
-    S2,
-    S3,
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+pub enum TriangleSide {
+    S1 = 0,
+    S2 = 1,
+    S3 = 2,
+}
+
+impl Into<usize> for TriangleSide {
+    fn into(self) -> usize {
+        match self {
+            TriangleSide::S1 => 0,
+            TriangleSide::S2 => 1,
+            TriangleSide::S3 => 2,
+        }
+    }
+}
+
+impl Into<TriangleSide> for usize {
+    fn into(self) -> TriangleSide {
+        match self {
+            0 => TriangleSide::S1,
+            1 => TriangleSide::S2,
+            2 => TriangleSide::S3,
+            other => panic!("Out of range: Try convert index {self} to Triangle side"),
+        }
+    }
 }
 
 impl<'a, T: Triangle2d> Iterator for TriangleLineIterator<'a, T> {
@@ -360,70 +496,18 @@ impl<'a, T: Triangle2d> Iterator for TriangleLineIterator<'a, T> {
         (remaining_count, Some(remaining_count))
     }
 }
+
 fn pt_is_inside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().all(|s| *s == SideOfLine::Left)
 }
 fn pt_is_outside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().any(|s| *s == SideOfLine::Right)
 }
-#[derive(Clone, PartialEq)]
-pub struct StaticTriangle2d {
-    p1: Point2d,
-    p2: Point2d,
-    p3: Point2d,
-}
 
-impl Debug for StaticTriangle2d {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "T2d({:?},{:?},{:?})",
-            self.p1, self.p2, self.p3
-        ))
-    }
-}
-impl StaticTriangle2d {
-    pub fn new(p1: Point2d, p2: Point2d, p3: Point2d) -> Self {
-        Self { p1, p2, p3 }
-    }
-}
-
-impl Polygon2d for StaticTriangle2d {
-    type PointIter<'a> = TrianglePointIterator<'a, StaticTriangle2d>;
-
-    fn points(&self) -> Self::PointIter<'_> {
-        TrianglePointIterator {
-            triangle: self,
-            state: Default::default(),
-        }
-    }
-
-    fn point_count(&self) -> usize {
-        3
-    }
-
-    fn to_any_polygon(self) -> AnyPolygon {
-        AnyPolygon::StaticTrianglePolygon(self)
-    }
-
-    fn get_point(&self, idx: usize) -> Option<&'_ Point2d> {
-        match idx {
-            0 => Some(&self.p1),
-            1 => Some(&self.p2),
-            2 => Some(&self.p3),
-            _ => None,
-        }
-    }
-}
-impl Triangle2d for StaticTriangle2d {
-    fn p1(&self) -> &Point2d {
-        &self.p1
-    }
-
-    fn p2(&self) -> &Point2d {
-        &self.p2
-    }
-
-    fn p3(&self) -> &Point2d {
-        &self.p3
-    }
+mod static_triangle;
+#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
+enum TriangleCornerPoint {
+    P1 = 0,
+    P2 = 1,
+    P3 = 2,
 }

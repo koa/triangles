@@ -1,3 +1,5 @@
+use std::io::BufRead;
+
 use ordered_float::OrderedFloat;
 use svg::node::element::path::Data;
 use svg::node::element::Path;
@@ -5,7 +7,8 @@ use svg::Document;
 
 use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
 use crate::geometry2d::point::{BoundingBoxSvg, Point2d};
-use crate::geometry2d::polygon::{AnyPolygon, Polygon2d, PolygonPath};
+use crate::geometry2d::polygon::cut::PolygonPath;
+use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
 use crate::geometry2d::triangle::{StaticTriangle2d, Triangle2d};
 
 struct Figure {
@@ -211,15 +214,15 @@ fn test_polygon_intersection() {
     );
     let small_triangle = StaticTriangle2d::new(
         (-50.0, 25.0).into(),
+        (0.0, -25.0).into(),
         (50.0, 25.0).into(),
-        (0.0, -75.0).into(),
     );
 
     let cut_polygon = &small_triangle;
     let path = big_triangle.cut(cut_polygon);
     println!("Path: {path:?}");
     let mut list = DisplayList::default();
-    match path {
+    match &path {
         PolygonPath::Enclosed => {
             list.append_figure(Figure::from_polygon(cut_polygon.clone(), "none", "red", 2))
         }
@@ -232,19 +235,29 @@ fn test_polygon_intersection() {
                     cut_polygon.lines().nth(start_cut.start_pt_idx()),
                     cut_polygon.lines().nth(end_cut.start_pt_idx()),
                 ) {
-                    points.push(start_line.pt_along(start_cut.cut_pos()));
+                    points.push(start_line.pt_along(start_cut.polygon_pos()));
                     for p in cut_polygon.points_of_range(segment.copy_points()) {
                         points.push(*p);
                     }
-                    points.push(end_line.pt_along(end_cut.cut_pos()));
-                    list.append_figure(Figure::from_points(points, "none", "red", 2));
+                    points.push(end_line.pt_along(end_cut.polygon_pos()));
+                    list.append_figure(Figure::from_points(points, "none", "red", 3));
                 }
             }
         }
         PolygonPath::None => {}
     }
-    list.append_figure(big_triangle.into());
-    list.append_figure(small_triangle.into());
+
+    let mut colors = ["blue", "green"].iter().cycle();
+    let mut show = [true, false].iter().cycle();
+    for polygon in big_triangle.compose_cut_polygons(&small_triangle, &path) {
+        let stroke = colors.next().unwrap();
+        let show = show.next().unwrap();
+        if *show {
+            list.append_figure(Figure::from_polygon(polygon, "none", stroke, 2));
+        }
+    }
+    //list.append_figure(big_triangle.into());
+    //list.append_figure(small_triangle.into());
     list.plot("target/triangle.svg").unwrap(); /*
                                                let bbox = big_triangle.bbox() + small_triangle.bbox();
                                                let mut svg = bbox.plot_coordinates(Document::new().set("viewBox", bbox));
