@@ -1,5 +1,3 @@
-use std::io::BufRead;
-
 use ordered_float::OrderedFloat;
 use svg::node::element::path::Data;
 use svg::node::element::Path;

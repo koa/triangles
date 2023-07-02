@@ -1,34 +1,13 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
 
-use num_traits::{One, Zero};
-
 use crate::geometry2d::polygon::cut::{CutSegment, LineCutIdx};
-use crate::geometry2d::triangle::{RelativeLinePosition, TriangleCornerPoint, TriangleSide};
-use crate::geometry2d::{Polygon2d, Triangle2d};
+use crate::geometry2d::triangle::{TriangleCornerPoint, TriangleSide};
 use crate::primitives::Number;
 
-impl RelativeLinePosition {
-    fn relative_pt_along(&self) -> Number {
-        match self {
-            RelativeLinePosition::Start => Number::zero(),
-            RelativeLinePosition::End => Number::one(),
-            RelativeLinePosition::Crossing { along, .. } => *along,
-        }
-    }
-}
-
-struct WalkIndex<'a, P: Polygon2d + Debug, T: Triangle2d> {
-    triangle: &'a T,
-    cut_polygon: &'a P,
-    segments: &'a [CutSegment],
+struct WalkIndex<'a> {
     edge_points: Vec<TriangleEdgePoint<SegmentAlongSide<'a>>>,
     edge_peers: Vec<Option<usize>>,
-}
-
-enum TrianglePolygonPosition {
-    TrianglePoint { idx: TriangleCornerPoint },
-    PolygonPoint { idx: u32 },
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Copy, Clone, Debug)]
@@ -135,8 +114,8 @@ impl<P: PointAlongTriangleSide> PartialOrd for TriangleEdgePoint<P> {
     }
 }
 
-impl<'a, P: Polygon2d + Debug, T: Triangle2d> WalkIndex<'a, P, T> {
-    pub fn new(triangle: &'a T, cut_polygon: &'a P, segments: &'a [CutSegment]) -> Self {
+impl<'a> WalkIndex<'a> {
+    pub fn new(segments: &'a [CutSegment]) -> Self {
         let mut edge_points: Vec<TriangleEdgePoint<SegmentAlongSide>> =
             Vec::with_capacity(3 + 2 * segments.len());
         edge_points.push(TriangleEdgePoint::Corner(TriangleCornerPoint::P1));
@@ -178,9 +157,6 @@ impl<'a, P: Polygon2d + Debug, T: Triangle2d> WalkIndex<'a, P, T> {
             }
         }
         Self {
-            triangle,
-            cut_polygon,
-            segments,
             edge_points,
             edge_peers,
         }
@@ -198,32 +174,16 @@ impl<'a, P: Polygon2d + Debug, T: Triangle2d> WalkIndex<'a, P, T> {
     }
 }
 
-impl Default for TrianglePolygonPosition {
-    fn default() -> Self {
-        Self::TrianglePoint {
-            idx: TriangleCornerPoint::P1,
-        }
-    }
-}
-pub fn walk_shape_recursive<P: Polygon2d + Debug, T: Triangle2d>(
-    triangle: &T,
-    cut_polygon: &P,
-    segments: &[CutSegment],
-) -> Vec<Vec<TraceResultPoint>> {
+pub fn walk_shape_recursive(segments: &[CutSegment]) -> Vec<Vec<TraceResultPoint>> {
     let mut startpoint_stack = Vec::with_capacity(3);
     startpoint_stack.push(0);
-    let walker = WalkIndex::new(triangle, cut_polygon, segments);
+    let walker = WalkIndex::new(segments);
     let mut result = Vec::with_capacity(1);
     while let Some(idx) = startpoint_stack.pop() {
         let mut trace_path = Vec::new();
         let mut last_idx = None;
         let mut next_idx = idx;
-        loop {
-            let x = last_idx.is_none() || next_idx != idx;
-            println!("{last_idx:?},{next_idx}:{x}");
-            if !x {
-                break;
-            }
+        while last_idx.is_none() || next_idx != idx {
             let current_idx = match walker.entry(next_idx) {
                 TriangleEdgePoint::Corner(p) => {
                     trace_path.push(TraceResultPoint::Corner(*p));

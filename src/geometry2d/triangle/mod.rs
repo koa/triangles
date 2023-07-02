@@ -272,72 +272,21 @@ pub trait Triangle2d: Sized + Polygon2d {
             PolygonPath::Enclosed => {
                 todo!()
             }
-            PolygonPath::CutSegments(segments) => walk_shape_recursive(self, cut_polygon, segments)
-                .map(|polygon: Vec<TraceResultPoint>| {
+            PolygonPath::CutSegments(segments) => {
+                walk_shape_recursive(segments).map(|polygon: Vec<TraceResultPoint>| {
                     polygon.map(|point| match point {
                         TraceResultPoint::Corner(p) => *self.point(p),
                         TraceResultPoint::PolygonPoint(p) => *cut_polygon.get_point(p).unwrap(),
                         TraceResultPoint::CrossPoint {
                             triangle_side,
-                            polygon_side,
                             along_triangle,
-                            along_polygon,
+                            ..
                         } => self.side(triangle_side).pt_along(along_triangle),
                     })
-                }),
+                })
+            }
             PolygonPath::None => {
                 todo!()
-            }
-        }
-    }
-}
-#[derive(Default, Copy, Clone)]
-pub struct CrosspointVisited {
-    to_polygon: bool,
-    to_triangle: bool,
-}
-
-impl CrosspointVisited {
-    fn visit_to_polygon(&mut self) {
-        assert!(!self.to_polygon);
-        self.to_polygon = true;
-    }
-    fn visit_to_triangle(&mut self) {
-        assert!(!self.to_triangle);
-        self.to_triangle = true;
-    }
-    fn fully_visited(&self) -> bool {
-        self.to_polygon && self.to_triangle
-    }
-}
-#[derive(Copy, Clone, Debug)]
-pub struct TrianglePointReference {
-    line_idx: u8,
-    relative_position: RelativeLinePosition,
-}
-#[derive(Copy, Clone, Debug)]
-enum RelativeLinePosition {
-    Start,
-    End,
-    Crossing { cross_idx: u32, along: Number },
-}
-
-impl PartialEq for RelativeLinePosition {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            RelativeLinePosition::Start => matches!(other, RelativeLinePosition::Start),
-            RelativeLinePosition::End => matches!(other, RelativeLinePosition::End),
-            RelativeLinePosition::Crossing {
-                cross_idx: idx1, ..
-            } => {
-                if let RelativeLinePosition::Crossing {
-                    cross_idx: idx2, ..
-                } = other
-                {
-                    idx1 == idx2
-                } else {
-                    false
-                }
             }
         }
     }
@@ -463,7 +412,7 @@ impl Into<TriangleSide> for usize {
             0 => TriangleSide::S1,
             1 => TriangleSide::S2,
             2 => TriangleSide::S3,
-            other => panic!("Out of range: Try convert index {self} to Triangle side"),
+            other => panic!("Out of range: Try convert index {other} to Triangle side"),
         }
     }
 }
@@ -506,7 +455,7 @@ fn pt_is_outside(pattern: &[SideOfLine; 3]) -> bool {
 
 mod static_triangle;
 #[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
-enum TriangleCornerPoint {
+pub enum TriangleCornerPoint {
     P1 = 0,
     P2 = 1,
     P3 = 2,
