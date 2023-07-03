@@ -5,8 +5,6 @@ use std::{
     ops::{Add, Sub},
 };
 
-use triangulate::Vertex;
-
 #[cfg(test)]
 use svg::node::{
     element::{
@@ -15,6 +13,7 @@ use svg::node::{
     },
     Value,
 };
+use triangulate::Vertex;
 
 use crate::geometry2d::vector::Vector2d;
 use crate::primitives::{Float, Number};
@@ -64,6 +63,16 @@ impl BoundingBoxValues {
             min_y,
             max_x,
             max_y,
+        }
+    }
+    pub fn expand(&self, s: Number) -> Self {
+        let expand_horizontal = self.width() * s / 2.0;
+        let expand_vertical = self.height() * s / 2.0;
+        Self {
+            min_x: self.min_x - expand_horizontal,
+            min_y: self.min_y - expand_vertical,
+            max_x: self.max_x + expand_horizontal,
+            max_y: self.max_y + expand_vertical,
         }
     }
 }
