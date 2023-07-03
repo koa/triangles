@@ -1,10 +1,17 @@
-use std::fmt::{Debug, Formatter};
-use std::ops::{Add, AddAssign, Sub};
+#[cfg(test)]
+use std::ops::AddAssign;
+use std::{
+    fmt::{Debug, Formatter},
+    ops::{Add, Sub},
+};
 
 #[cfg(test)]
-use svg::{
-    node::element::path::Data, node::element::path::Parameters, node::element::Path,
-    node::element::SVG, node::Value,
+use svg::node::{
+    element::{
+        path::{Data, Parameters},
+        Path, SVG,
+    },
+    Value,
 };
 use triangulate::Vertex;
 
