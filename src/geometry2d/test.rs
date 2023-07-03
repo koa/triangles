@@ -8,7 +8,8 @@ use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
 use crate::geometry2d::point::{BoundingBoxSvg, Point2d};
 use crate::geometry2d::polygon::cut::PolygonPath;
 use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
-use crate::geometry2d::triangle::{StaticTriangle2d, Triangle2d};
+use crate::geometry2d::triangle::Triangle2d;
+use crate::prelude::StaticTriangle2d;
 
 struct Figure {
     path: PathWay,

@@ -8,7 +8,8 @@ use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
 use crate::geometry2d::point::BoundingBoxSvg;
 use crate::geometry2d::point::Point2d;
 use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange, PointRangeIterator};
-use crate::geometry2d::triangle::{StaticTriangle2d, TrianglePointIterator};
+use crate::geometry2d::triangle::static_triangle::StaticTriangle2d;
+use crate::geometry2d::triangle::TrianglePointIterator;
 
 pub trait Polygon2d: Sized + Clone {
     type PointIter<'a>: Iterator<Item = &'a Point2d> + Clone

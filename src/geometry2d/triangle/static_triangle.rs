@@ -1,9 +1,12 @@
-use crate::geometry2d::polygon::AnyPolygon;
-use crate::geometry2d::triangle::TrianglePointIterator;
-use crate::geometry2d::{Point2d, Polygon2d, Triangle2d};
 use std::fmt::{Debug, Formatter};
 
-#[derive(Clone, PartialEq)]
+use crate::geometry2d::{
+    point::Point2d,
+    polygon::{AnyPolygon, Polygon2d},
+    triangle::{Triangle2d, TrianglePointIterator},
+};
+
+#[derive(Clone, PartialEq, Copy, Eq)]
 pub struct StaticTriangle2d {
     p1: Point2d,
     p2: Point2d,

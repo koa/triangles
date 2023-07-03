@@ -5,14 +5,14 @@ use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
 use triangulate::Mappable;
 
-pub use static_triangle::StaticTriangle2d;
-
 use crate::geometry2d::line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine};
 use crate::geometry2d::point::Point2d;
 use crate::geometry2d::polygon::cut::{CutSegment, LineCutIdx, PointRange, PolygonPath};
 use crate::geometry2d::polygon::Polygon2d;
 use crate::geometry2d::triangle::cut::{walk_shape_recursive, TraceResultPoint};
 use crate::primitives::Number;
+
+pub mod static_triangle;
 
 pub trait Triangle2d: Sized + Polygon2d {
     fn p1(&self) -> &Point2d;
@@ -455,7 +455,6 @@ fn pt_is_outside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().any(|s| *s == SideOfLine::Right)
 }
 */
-mod static_triangle;
 #[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
 pub enum TriangleCornerPoint {
     P1 = 0,
