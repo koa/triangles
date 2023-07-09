@@ -1,5 +1,4 @@
 use std::ops::AddAssign;
-use std::path::Path;
 use std::{
     fmt::{Debug, Formatter},
     ops::{Add, Sub},
@@ -396,6 +395,11 @@ impl Point2d {
     }
     pub fn y(&self) -> Number {
         self.y
+    }
+    pub fn dist_square(&self, other: &Point2d) -> Number {
+        let x_dist = self.x - other.x;
+        let y_dist = self.y - other.y;
+        x_dist * x_dist + y_dist * y_dist
     }
 }
 

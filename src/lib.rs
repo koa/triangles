@@ -8,6 +8,6 @@ pub mod prelude {
             polygon::{cut::PolygonPath, AnyPolygon, Polygon2d},
             triangle::{static_triangle::StaticTriangle2d, Triangle2d},
         },
-        primitives::Number,
+        primitives::{Float, Number},
     };
 }
