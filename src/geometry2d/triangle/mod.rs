@@ -73,6 +73,7 @@ pub trait Triangle2d: Sized + Polygon2d {
             self.l3().side_of_pt(p),
         ]
     }
+    fn reverse(&self) -> Self;
 
     fn find_cutting_edge<L: Line2d>(&self, line: &L) -> Option<(TriangleSide, Number, Number)> {
         self.lines()
@@ -223,7 +224,7 @@ pub trait Triangle2d: Sized + Polygon2d {
                                         PointRange::WarpAround {
                                             first_idx: *first_idx_end,
                                             last_idx: *last_idx_begin,
-                                            point_count,
+                                            point_count: cut_polygon.point_count(),
                                         }
                                     };
                                     Some(CutSegment::new(

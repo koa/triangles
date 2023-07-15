@@ -163,6 +163,19 @@ impl Iterator for PointRangeIterator {
     }
 }
 
+#[test]
+fn test_point_range() {
+    let mut iterator = PointRange::WarpAround {
+        first_idx: 2,
+        last_idx: 0,
+        point_count: 3,
+    }
+    .iter();
+    assert_eq!(Some(2), iterator.next());
+    assert_eq!(Some(0), iterator.next());
+    assert_eq!(None, iterator.next());
+}
+
 impl CutSegment {
     pub fn new(copy_points: PointRange, start_cut: LineCutIdx, end_cut: LineCutIdx) -> Self {
         Self {

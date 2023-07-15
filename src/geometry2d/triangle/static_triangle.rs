@@ -68,4 +68,12 @@ impl Triangle2d for StaticTriangle2d {
     fn p3(&self) -> &Point2d {
         &self.p3
     }
+
+    fn reverse(&self) -> Self {
+        Self {
+            p1: self.p1,
+            p2: self.p3,
+            p3: self.p2,
+        }
+    }
 }

@@ -1,5 +1,4 @@
 use ordered_float::OrderedFloat;
-use std::io::BufRead;
 use svg::node::element::path::Data;
 use svg::node::element::Path;
 use svg::Document;
@@ -203,6 +202,43 @@ fn test_side_of_line() {
     assert_eq!(SideOfLine::Right, l2.side_of_pt(&(0.0, 1.0).into()));
     assert_eq!(SideOfLine::Hit, l2.side_of_pt(&(1.0, 1.0).into()));
     assert_eq!(SideOfLine::Left, l2.side_of_pt(&(1.0, 0.0).into()));
+}
+
+#[test]
+fn test_triangle_error() {
+    let big_triangle = StaticTriangle2d::new(
+        (-100.0, 0.0).into(),
+        (100.0, 0.0).into(),
+        (0.0, 100.0).into(),
+    );
+    let small_triangle = StaticTriangle2d::new(
+        (-50.0, 25.0).into(),
+        (00.0, -25.0).into(),
+        (50.0, 25.0).into(),
+    );
+    let path = big_triangle.cut(&small_triangle);
+    match &path {
+        PolygonPath::Enclosed => {}
+        PolygonPath::CutSegments(segments) => {
+            for segment in segments {
+                let mut points = Vec::new();
+                let start_cut = segment.start_cut();
+                let end_cut = segment.end_cut();
+                if let (Some(start_line), Some(end_line)) = (
+                    small_triangle.lines().nth(start_cut.start_pt_idx()),
+                    small_triangle.lines().nth(end_cut.start_pt_idx()),
+                ) {
+                    points.push(start_line.pt_along(start_cut.polygon_pos()));
+                    for p in small_triangle.points_of_range(segment.copy_points()) {
+                        points.push(*p);
+                    }
+                    points.push(end_line.pt_along(end_cut.polygon_pos()));
+                    println!("Points: {points:?}")
+                }
+            }
+        }
+        PolygonPath::None => {}
+    }
 }
 
 #[test]
