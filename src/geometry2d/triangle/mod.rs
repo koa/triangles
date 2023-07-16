@@ -1,45 +1,51 @@
-use std::fmt::{Debug, Formatter};
-use std::vec;
+use std::{
+    fmt::{Debug, Formatter},
+    vec,
+};
 
 use itertools::Itertools;
 use log::error;
 use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
-use triangulate::Polygon;
-use triangulate::PolygonList;
-use triangulate::{formats, ListFormat};
+use triangulate::{formats, ListFormat, Polygon, PolygonList};
 
-use crate::geometry2d::line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine};
-use crate::geometry2d::point::Point2d;
-use crate::geometry2d::polygon::cut::{CutSegment, LineCutIdx, PointRange, PolygonPath};
-use crate::geometry2d::polygon::Polygon2d;
-use crate::geometry2d::triangle::cut::{walk_shape_recursive, TraceResultPoint};
-use crate::prelude::StaticTriangle2d;
-use crate::primitives::Number;
+use crate::{
+    geometry2d::{
+        line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine},
+        point::{Point2d, StaticPoint2d},
+        polygon::{
+            cut::{CutSegment, LineCutIdx, PointRange, PolygonPath},
+            Polygon2d,
+        },
+        triangle::cut::{walk_shape_recursive, TraceResultPoint},
+    },
+    prelude::StaticTriangle2d,
+    primitives::Number,
+};
 
 pub mod static_triangle;
 
 pub trait Triangle2d: Sized + Polygon2d {
-    fn p1(&self) -> &Point2d;
-    fn p2(&self) -> &Point2d;
-    fn p3(&self) -> &Point2d;
-    fn l1(&self) -> (&Point2d, &Point2d) {
+    fn p1(&self) -> &StaticPoint2d;
+    fn p2(&self) -> &StaticPoint2d;
+    fn p3(&self) -> &StaticPoint2d;
+    fn l1(&self) -> (&StaticPoint2d, &StaticPoint2d) {
         (self.p1(), self.p2())
     }
-    fn l2(&self) -> (&Point2d, &Point2d) {
+    fn l2(&self) -> (&StaticPoint2d, &StaticPoint2d) {
         (self.p2(), self.p3())
     }
-    fn l3(&self) -> (&Point2d, &Point2d) {
+    fn l3(&self) -> (&StaticPoint2d, &StaticPoint2d) {
         (self.p3(), self.p1())
     }
-    fn point(&self, p: TriangleCornerPoint) -> &Point2d {
+    fn point(&self, p: TriangleCornerPoint) -> &StaticPoint2d {
         match p {
             TriangleCornerPoint::P1 => self.p1(),
             TriangleCornerPoint::P2 => self.p2(),
             TriangleCornerPoint::P3 => self.p3(),
         }
     }
-    fn side(&self, p: TriangleSide) -> (&Point2d, &Point2d) {
+    fn side(&self, p: TriangleSide) -> (&StaticPoint2d, &StaticPoint2d) {
         match p {
             TriangleSide::S1 => self.l1(),
             TriangleSide::S2 => self.l2(),
@@ -68,10 +74,10 @@ pub trait Triangle2d: Sized + Polygon2d {
         let p3 = self.p3();
         (p1.x() * (p2.y() - p3.y()) + p2.x() * (p3.y() - p1.y()) + p3.x() * (p1.y() - p2.y())) / 2.0
     }
-    fn contains_pt(&self, p: &Point2d) -> bool {
+    fn contains_pt(&self, p: &StaticPoint2d) -> bool {
         self.quadrant_pattern(p) == [SideOfLine::Left, SideOfLine::Left, SideOfLine::Left]
     }
-    fn quadrant_pattern(&self, p: &Point2d) -> [SideOfLine; 3] {
+    fn quadrant_pattern(&self, p: &StaticPoint2d) -> [SideOfLine; 3] {
         [
             self.l1().side_of_pt(p),
             self.l2().side_of_pt(p),
@@ -276,8 +282,8 @@ pub trait Triangle2d: Sized + Polygon2d {
     ) -> [Vec<StaticTriangle2d>; 2] {
         match path {
             PolygonPath::Enclosed => {
-                let outer_polygon: Vec<Point2d> = self.points().copied().collect();
-                let inner_polygon: Vec<Point2d> = cut_polygon.points().copied().collect();
+                let outer_polygon: Vec<StaticPoint2d> = self.points().copied().collect();
+                let inner_polygon: Vec<StaticPoint2d> = cut_polygon.points().copied().collect();
                 let outer_shape = vec![outer_polygon, inner_polygon];
                 let mut outer_triangulated_indices = Vec::<[usize; 2]>::new();
                 let outer_triangles = outer_shape
@@ -414,7 +420,7 @@ impl TriangleIteratorState {
 }
 
 impl<'a, T: Triangle2d> Iterator for TrianglePointIterator<'a, T> {
-    type Item = &'a Point2d;
+    type Item = &'a StaticPoint2d;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next_value = match self.state {
@@ -451,7 +457,7 @@ pub struct TriangleLine<'a, T: Triangle2d> {
 }
 
 impl<'a, T: Triangle2d> Line2d for TriangleLine<'a, T> {
-    fn p1(&self) -> &Point2d {
+    fn p1(&self) -> &StaticPoint2d {
         match self.side {
             TriangleSide::S1 => self.triangle.p1(),
             TriangleSide::S2 => self.triangle.p2(),
@@ -459,7 +465,7 @@ impl<'a, T: Triangle2d> Line2d for TriangleLine<'a, T> {
         }
     }
 
-    fn p2(&self) -> &Point2d {
+    fn p2(&self) -> &StaticPoint2d {
         match self.side {
             TriangleSide::S1 => self.triangle.p2(),
             TriangleSide::S2 => self.triangle.p3(),

@@ -10,7 +10,7 @@ use svg::node::{
     Value,
 };
 
-use crate::prelude::Point2d;
+use crate::prelude::StaticPoint2d;
 use crate::primitives::Number;
 
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
@@ -82,7 +82,7 @@ pub enum BoundingBoxSvg {
 
 #[cfg(test)]
 impl BoundingBoxSvg {
-    pub fn apply(&self, point: &Point2d) -> Parameters {
+    pub fn apply(&self, point: &StaticPoint2d) -> Parameters {
         let x = point.x.0 as f32;
         let y = -point.y.0 as f32;
         match self {
@@ -132,7 +132,7 @@ impl BoundingBoxSvg {
 
 #[cfg(test)]
 #[inline]
-fn point2svg(rhs: &Point2d) -> (f32, f32) {
+fn point2svg(rhs: &StaticPoint2d) -> (f32, f32) {
     (rhs.x.0 as f32, -rhs.y.0 as f32)
 }
 
@@ -254,11 +254,11 @@ impl AddAssign for BoundingBoxSvg {
     }
 }
 
-impl Add<Point2d> for BoundingBox {
+impl Add<StaticPoint2d> for BoundingBox {
     type Output = BoundingBox;
 
-    fn add(self, rhs: Point2d) -> Self::Output {
-        let Point2d { x, y } = rhs;
+    fn add(self, rhs: StaticPoint2d) -> Self::Output {
+        let StaticPoint2d { x, y } = rhs;
         match self {
             BoundingBox::Empty => BoundingBox::Box(BoundingBoxValues {
                 min_x: x,
@@ -282,10 +282,10 @@ impl Add<Point2d> for BoundingBox {
 }
 
 #[cfg(test)]
-impl Add<Point2d> for BoundingBoxSvg {
+impl Add<StaticPoint2d> for BoundingBoxSvg {
     type Output = BoundingBoxSvg;
 
-    fn add(self, rhs: Point2d) -> Self::Output {
+    fn add(self, rhs: StaticPoint2d) -> Self::Output {
         let (x, y) = point2svg(&rhs);
         match self {
             BoundingBoxSvg::Empty => BoundingBoxSvg::Box {
@@ -309,9 +309,9 @@ impl Add<Point2d> for BoundingBoxSvg {
     }
 }
 
-impl AddAssign<Point2d> for BoundingBox {
-    fn add_assign(&mut self, rhs: Point2d) {
-        let Point2d { x, y } = rhs;
+impl AddAssign<StaticPoint2d> for BoundingBox {
+    fn add_assign(&mut self, rhs: StaticPoint2d) {
+        let StaticPoint2d { x, y } = rhs;
         match self {
             BoundingBox::Box(BoundingBoxValues {
                 min_x,
@@ -337,8 +337,8 @@ impl AddAssign<Point2d> for BoundingBox {
 }
 
 #[cfg(test)]
-impl AddAssign<Point2d> for BoundingBoxSvg {
-    fn add_assign(&mut self, rhs: Point2d) {
+impl AddAssign<StaticPoint2d> for BoundingBoxSvg {
+    fn add_assign(&mut self, rhs: StaticPoint2d) {
         let (x, y) = point2svg(&rhs);
         match self {
             BoundingBoxSvg::Box {

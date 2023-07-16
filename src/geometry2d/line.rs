@@ -1,23 +1,29 @@
-use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Formatter},
+};
 
 use num_traits::Zero;
 use ordered_float::OrderedFloat;
 
-use crate::geometry2d::point::Point2d;
-use crate::geometry2d::vector::Vector2d;
-use crate::primitives::Number;
+use crate::{
+    geometry2d::{
+        point::{Point2d, StaticPoint2d},
+        vector::Vector2d,
+    },
+    primitives::Number,
+};
 
 pub trait Line2d: Sized + Debug {
-    fn p1(&self) -> &Point2d;
-    fn p2(&self) -> &Point2d;
+    fn p1(&self) -> &StaticPoint2d;
+    fn p2(&self) -> &StaticPoint2d;
     fn direction(&self) -> Vector2d {
         *self.p2() - *self.p1()
     }
     fn equals<L2: Line2d>(&self, other: &L2) -> bool {
         self.p1() == other.p1() && self.p2() == other.p2()
     }
-    fn side_of_pt(&self, pt: &Point2d) -> SideOfLine {
+    fn side_of_pt(&self, pt: &StaticPoint2d) -> SideOfLine {
         let p1 = self.p1();
         let p2 = self.p2();
         let r = (pt.x() - p2.x()) * (p1.y() - p2.y()) - (p1.x() - p2.x()) * (pt.y() - p2.y());
@@ -27,7 +33,7 @@ pub trait Line2d: Sized + Debug {
             Ordering::Greater => SideOfLine::Left,
         }
     }
-    fn pt_along(&self, n: Number) -> Point2d {
+    fn pt_along(&self, n: Number) -> StaticPoint2d {
         *self.p1() + (*self.p2() - *self.p1()) * n
     }
 
@@ -53,10 +59,10 @@ pub trait Line2d: Sized + Debug {
             LineIntersection::None
         }
     }
-    fn y_cross_side(&self, p: &Point2d) -> HitSide {
-        let Point2d { x, y } = *p;
-        let Point2d { x: x1, y: y1 } = *self.p1();
-        let Point2d { x: x2, y: y2 } = *self.p2();
+    fn y_cross_side(&self, p: &StaticPoint2d) -> HitSide {
+        let StaticPoint2d { x, y } = *p;
+        let StaticPoint2d { x: x1, y: y1 } = *self.p1();
+        let StaticPoint2d { x: x2, y: y2 } = *self.p2();
         if Number::min(y1, y2) > y || Number::max(y1, y2) < y {
             HitSide::None
         } else if y1 == y2 {
@@ -128,12 +134,12 @@ pub enum SideOfLine {
 }
 
 pub struct StaticLine2d {
-    p1: Point2d,
-    p2: Point2d,
+    p1: StaticPoint2d,
+    p2: StaticPoint2d,
 }
 
 impl StaticLine2d {
-    pub fn new(p1: Point2d, p2: Point2d) -> StaticLine2d {
+    pub fn new(p1: StaticPoint2d, p2: StaticPoint2d) -> StaticLine2d {
         StaticLine2d { p1, p2 }
     }
 }
@@ -151,18 +157,18 @@ impl Debug for StaticLine2d {
 }
 
 impl Line2d for StaticLine2d {
-    fn p1(&self) -> &Point2d {
+    fn p1(&self) -> &StaticPoint2d {
         &self.p1
     }
 
-    fn p2(&self) -> &Point2d {
+    fn p2(&self) -> &StaticPoint2d {
         &self.p2
     }
 }
 
 pub struct ReferenceLine2d<'a> {
-    p1: &'a Point2d,
-    p2: &'a Point2d,
+    p1: &'a StaticPoint2d,
+    p2: &'a StaticPoint2d,
 }
 
 impl<'a> Debug for ReferenceLine2d<'a> {
@@ -172,27 +178,27 @@ impl<'a> Debug for ReferenceLine2d<'a> {
 }
 
 impl<'a> Line2d for ReferenceLine2d<'a> {
-    fn p1(&self) -> &Point2d {
+    fn p1(&self) -> &StaticPoint2d {
         self.p1
     }
 
-    fn p2(&self) -> &Point2d {
+    fn p2(&self) -> &StaticPoint2d {
         self.p2
     }
 }
 
 impl<'a> ReferenceLine2d<'a> {
-    pub fn new(p1: &'a Point2d, p2: &'a Point2d) -> Self {
+    pub fn new(p1: &'a StaticPoint2d, p2: &'a StaticPoint2d) -> Self {
         Self { p1, p2 }
     }
 }
 
-impl Line2d for (&Point2d, &Point2d) {
-    fn p1(&self) -> &Point2d {
+impl Line2d for (&StaticPoint2d, &StaticPoint2d) {
+    fn p1(&self) -> &StaticPoint2d {
         self.0
     }
 
-    fn p2(&self) -> &Point2d {
+    fn p2(&self) -> &StaticPoint2d {
         self.1
     }
 }

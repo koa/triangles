@@ -4,20 +4,20 @@ use triangulate::Polygon;
 
 use crate::geometry2d::triangle::{TriangleCornerIterator, TriangleCornerPoint};
 use crate::geometry2d::{
-    point::Point2d,
+    point::StaticPoint2d,
     polygon::{AnyPolygon, Polygon2d},
     triangle::{Triangle2d, TrianglePointIterator},
 };
 
 #[derive(Clone, PartialEq, Copy, Eq)]
 pub struct StaticTriangle2d {
-    p1: Point2d,
-    p2: Point2d,
-    p3: Point2d,
+    p1: StaticPoint2d,
+    p2: StaticPoint2d,
+    p3: StaticPoint2d,
 }
 
 impl<'p> Polygon<'p> for StaticTriangle2d {
-    type Vertex = Point2d;
+    type Vertex = StaticPoint2d;
     type Index = TriangleCornerPoint;
     type Iter<'i>    = TriangleCornerIterator  where Self: 'i, Self::Vertex: 'i, 'p: 'i;
 
@@ -49,7 +49,7 @@ impl Debug for StaticTriangle2d {
 }
 
 impl StaticTriangle2d {
-    pub fn new(p1: Point2d, p2: Point2d, p3: Point2d) -> Self {
+    pub fn new(p1: StaticPoint2d, p2: StaticPoint2d, p3: StaticPoint2d) -> Self {
         Self { p1, p2, p3 }
     }
 }
@@ -72,7 +72,7 @@ impl Polygon2d for StaticTriangle2d {
         AnyPolygon::StaticTrianglePolygon(self)
     }
 
-    fn get_point(&self, idx: usize) -> Option<&'_ Point2d> {
+    fn get_point(&self, idx: usize) -> Option<&'_ StaticPoint2d> {
         match idx {
             0 => Some(&self.p1),
             1 => Some(&self.p2),
@@ -83,15 +83,15 @@ impl Polygon2d for StaticTriangle2d {
 }
 
 impl Triangle2d for StaticTriangle2d {
-    fn p1(&self) -> &Point2d {
+    fn p1(&self) -> &StaticPoint2d {
         &self.p1
     }
 
-    fn p2(&self) -> &Point2d {
+    fn p2(&self) -> &StaticPoint2d {
         &self.p2
     }
 
-    fn p3(&self) -> &Point2d {
+    fn p3(&self) -> &StaticPoint2d {
         &self.p3
     }
 

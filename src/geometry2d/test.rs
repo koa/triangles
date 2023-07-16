@@ -6,7 +6,7 @@ use triangulate::{formats, ListFormat, PolygonList};
 
 use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
 use crate::geometry2d::point::bounding_box::BoundingBoxSvg;
-use crate::geometry2d::point::Point2d;
+use crate::geometry2d::point::StaticPoint2d;
 use crate::geometry2d::polygon::cut::PolygonPath;
 use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
 use crate::geometry2d::triangle::Triangle2d;
@@ -20,7 +20,7 @@ struct Figure {
 }
 enum PathWay {
     Polygon(AnyPolygon),
-    PointList(Vec<Point2d>),
+    PointList(Vec<StaticPoint2d>),
 }
 
 impl PathWay {
@@ -61,7 +61,7 @@ impl Figure {
         }
     }
     fn from_points<F: ToString, S: ToString, W: Into<u8>>(
-        points: Vec<Point2d>,
+        points: Vec<StaticPoint2d>,
         fill: F,
         stroke: S,
         width: W,

@@ -6,7 +6,7 @@ pub mod prelude {
             line::Line2d,
             point::{
                 bounding_box::{BoundingBox, BoundingBoxValues},
-                Point2d,
+                Point2d, StaticPoint2d,
             },
             polygon::{cut::PolygonPath, AnyPolygon, Polygon2d},
             triangle::{static_triangle::StaticTriangle2d, Triangle2d},
