@@ -2,6 +2,7 @@ use ordered_float::OrderedFloat;
 use svg::node::element::path::Data;
 use svg::node::element::Path;
 use svg::Document;
+use triangulate::{formats, ListFormat, PolygonList};
 
 use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
 use crate::geometry2d::point::{BoundingBoxSvg, Point2d};
@@ -286,11 +287,11 @@ fn test_polygon_intersection() {
 
     let mut colors = ["blue", "green"].iter().cycle();
     let mut show = [true, true].iter().cycle();
-    for polygon in big_triangle.compose_cut_polygons(&small_triangle, &path) {
+    for polygon in &big_triangle.triangulate_cut_polygons(&small_triangle, &path)[0] {
         let stroke = colors.next().unwrap();
         let show = show.next().unwrap();
         if *show {
-            list.append_figure(Figure::from_polygon(polygon, "none", stroke, 2));
+            list.append_figure(Figure::from_polygon(polygon.clone(), "none", stroke, 2));
         }
     }
     //list.append_figure(big_triangle.into());
@@ -305,4 +306,28 @@ fn test_polygon_intersection() {
                                                }
                                                svg::save("target/triangle.svg", &svg).unwrap();
                                                */
+}
+#[test]
+fn test_triangulate() {
+    // A hollow square shape
+    //  ________
+    // |  ____  |
+    // | |    | |
+    // | |____| |
+    // |________|
+    let polygons = vec![
+        vec![[0f32, 0f32], [0., 1.], [1., 1.], [1., 0.]],
+        vec![[0.05, 0.05], [0.05, 0.95], [0.95, 0.95], [0.95, 0.05]],
+    ];
+    let mut triangulated_indices = Vec::<[usize; 2]>::new();
+    polygons
+        .triangulate(formats::IndexedListFormat::new(&mut triangulated_indices).into_fan_format())
+        .expect("Triangulation failed");
+    println!("indices: {triangulated_indices:?}");
+    println!(
+        "First triangle: {:?}, {:?}, {:?}",
+        polygons.get_vertex(triangulated_indices[0]),
+        polygons.get_vertex(triangulated_indices[1]),
+        polygons.get_vertex(triangulated_indices[2])
+    );
 }

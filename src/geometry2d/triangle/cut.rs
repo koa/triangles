@@ -1,5 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::hash::Hash;
+
+use num_traits::{One, Zero};
 
 use crate::geometry2d::polygon::cut::{CutSegment, LineCutIdx};
 use crate::geometry2d::triangle::{TriangleCornerPoint, TriangleSide};
@@ -26,6 +29,7 @@ enum TriangleEdgePoint<P: PointAlongTriangleSide> {
     Corner(TriangleCornerPoint),
     AlongSide(P),
 }
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum TraceResultPoint {
     Corner(TriangleCornerPoint),
     PolygonPoint(usize),
@@ -199,21 +203,11 @@ pub fn walk_shape_recursive(segments: &[CutSegment]) -> [Vec<Vec<TraceResultPoin
                             side.segment.start_cut(),
                         ),
                     };
-                    trace_path.push(TraceResultPoint::CrossPoint {
-                        triangle_side: c1.triangle_line_idx(),
-                        polygon_side: c1.start_pt_idx(),
-                        along_triangle: c1.triangle_pos(),
-                        along_polygon: c1.polygon_pos(),
-                    });
+                    trace_path.push(create_trace_point(c1));
                     for polygon_point in i {
                         trace_path.push(TraceResultPoint::PolygonPoint(polygon_point));
                     }
-                    trace_path.push(TraceResultPoint::CrossPoint {
-                        triangle_side: c2.triangle_line_idx(),
-                        polygon_side: c2.start_pt_idx(),
-                        along_triangle: c2.triangle_pos(),
-                        along_polygon: c2.polygon_pos(),
-                    });
+                    trace_path.push(create_trace_point(c2));
                     let next_idx = walker.peer_of(current_idx).expect("data error");
                     if !first {
                         startpoint_stack.push((next_idx, (target_idx + 1) % 2));
@@ -224,8 +218,28 @@ pub fn walk_shape_recursive(segments: &[CutSegment]) -> [Vec<Vec<TraceResultPoin
             current_idx = walker.next_pos(last_idx);
             first = false;
         }
+        trace_path.dedup();
         trace_path.truncate(trace_path.len());
         result[target_idx].push(trace_path);
     }
     result
+}
+
+fn create_trace_point(cut_point: &LineCutIdx) -> TraceResultPoint {
+    if cut_point.triangle_pos() == Number::zero() {
+        TraceResultPoint::Corner(cut_point.triangle_line_idx().start_corner())
+    } else if cut_point.triangle_pos() == Number::one() {
+        TraceResultPoint::Corner(cut_point.triangle_line_idx().end_corner())
+    } else if cut_point.polygon_pos() == Number::zero() {
+        TraceResultPoint::PolygonPoint(cut_point.start_pt_idx())
+    //} else if cut_point.polygon_pos() == Number::one() {
+    //    TraceResultPoint::PolygonPoint(cut_point.start_pt_idx() + 1)
+    } else {
+        TraceResultPoint::CrossPoint {
+            triangle_side: cut_point.triangle_line_idx(),
+            polygon_side: cut_point.start_pt_idx(),
+            along_triangle: cut_point.triangle_pos(),
+            along_polygon: cut_point.polygon_pos(),
+        }
+    }
 }

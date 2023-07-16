@@ -1,15 +1,20 @@
 use std::fmt::{Debug, Formatter};
+use std::vec;
 
+use itertools::Itertools;
 use log::error;
 use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
-use triangulate::Mappable;
+use triangulate::Polygon;
+use triangulate::PolygonList;
+use triangulate::{formats, ListFormat};
 
 use crate::geometry2d::line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine};
 use crate::geometry2d::point::Point2d;
 use crate::geometry2d::polygon::cut::{CutSegment, LineCutIdx, PointRange, PolygonPath};
 use crate::geometry2d::polygon::Polygon2d;
 use crate::geometry2d::triangle::cut::{walk_shape_recursive, TraceResultPoint};
+use crate::prelude::StaticTriangle2d;
 use crate::primitives::Number;
 
 pub mod static_triangle;
@@ -264,32 +269,110 @@ pub trait Triangle2d: Sized + Polygon2d {
             PolygonPath::None
         }
     }
-    fn compose_cut_polygons<P: Polygon2d + Debug>(
+    fn triangulate_cut_polygons<P: Polygon2d + Debug>(
         &self,
         cut_polygon: &P,
         path: &PolygonPath,
-    ) -> Vec<Vec<Point2d>> {
+    ) -> [Vec<StaticTriangle2d>; 2] {
         match path {
             PolygonPath::Enclosed => {
-                todo!()
+                let outer_polygon: Vec<Point2d> = self.points().copied().collect();
+                let inner_polygon: Vec<Point2d> = cut_polygon.points().copied().collect();
+                let outer_shape = vec![outer_polygon, inner_polygon];
+                let mut outer_triangulated_indices = Vec::<[usize; 2]>::new();
+                let outer_triangles = outer_shape
+                    .triangulate(
+                        formats::IndexedListFormat::new(&mut outer_triangulated_indices)
+                            .into_fan_format(),
+                    )
+                    .expect("Error triangulate outer polygons");
+                let mut point_iter = outer_triangles.iter();
+                let mut final_outer_triangles = Vec::with_capacity(outer_triangles.len() / 3);
+                while let (Some(p1), Some(p2), Some(p3)) =
+                    (point_iter.next(), point_iter.next(), point_iter.next())
+                {
+                    final_outer_triangles.push(StaticTriangle2d::new(
+                        outer_shape[p1[0]][p1[1]],
+                        outer_shape[p2[0]][p2[1]],
+                        outer_shape[p3[0]][p3[1]],
+                    ));
+                }
+                let inner_triangles = if cut_polygon.point_count() == 3 {
+                    if let (Some(p1), Some(p2), Some(p3)) = (
+                        cut_polygon.get_point(0),
+                        cut_polygon.get_point(1),
+                        cut_polygon.get_point(2),
+                    ) {
+                        vec![StaticTriangle2d::new(*p1, *p2, *p3)]
+                    } else {
+                        panic!("invalid cut polygon")
+                    }
+                } else {
+                    let point_list: Vec<_> = cut_polygon.points().copied().collect();
+                    let mut inner_triangulated_indices = Vec::<usize>::new();
+                    let inner_triangles = point_list
+                        .triangulate(
+                            formats::IndexedListFormat::new(&mut inner_triangulated_indices)
+                                .into_fan_format(),
+                        )
+                        .expect("Error triangulate inner polygons");
+                    let mut point_iter = inner_triangles.iter();
+                    let mut triangles = Vec::with_capacity(inner_triangles.len() / 3);
+                    while let (Some(p1), Some(p2), Some(p3)) =
+                        (point_iter.next(), point_iter.next(), point_iter.next())
+                    {
+                        triangles.push(StaticTriangle2d::new(
+                            point_list[*p1],
+                            point_list[*p2],
+                            point_list[*p3],
+                        ));
+                    }
+                    triangles
+                };
+                [final_outer_triangles, inner_triangles]
             }
-            PolygonPath::CutSegments(segments) => {
-                let [p1, _p2] = walk_shape_recursive(segments);
-                p1.map(|polygon: Vec<TraceResultPoint>| {
-                    polygon.map(|point| match point {
-                        TraceResultPoint::Corner(p) => *self.point(p),
-                        TraceResultPoint::PolygonPoint(p) => *cut_polygon.get_point(p).unwrap(),
-                        TraceResultPoint::CrossPoint {
-                            triangle_side,
-                            along_triangle,
-                            ..
-                        } => self.side(triangle_side).pt_along(along_triangle),
-                    })
+            PolygonPath::CutSegments(segments) => walk_shape_recursive(segments).map(|p| {
+                Iterator::flat_map(p.iter(), |polygon| {
+                    let mut remaining_polygon =
+                        Iterator::map(polygon.iter().dedup(), |point| match point {
+                            TraceResultPoint::Corner(p) => *self.point(*p),
+                            TraceResultPoint::PolygonPoint(p) => {
+                                *cut_polygon.get_point(*p).unwrap()
+                            }
+                            TraceResultPoint::CrossPoint {
+                                triangle_side,
+                                along_triangle,
+                                ..
+                            } => self.side(*triangle_side).pt_along(*along_triangle),
+                        })
+                        .collect::<Vec<_>>();
+                    remaining_polygon.dedup();
+                    let mut triangulated_indices = Vec::<usize>::new();
+                    let x1 = remaining_polygon
+                        .triangulate(
+                            formats::IndexedListFormat::new(&mut triangulated_indices)
+                                .into_fan_format(),
+                        )
+                        .expect("Error on triangulate");
+                    let mut point_iter = x1.iter();
+                    let mut triangles = Vec::with_capacity(x1.len() / 3);
+                    while let (Some(p1), Some(p2), Some(p3)) =
+                        (point_iter.next(), point_iter.next(), point_iter.next())
+                    {
+                        triangles.push(StaticTriangle2d::new(
+                            remaining_polygon[*p1],
+                            remaining_polygon[*p2],
+                            remaining_polygon[*p3],
+                        ));
+                    }
+                    triangles
                 })
-            }
-            PolygonPath::None => {
-                todo!()
-            }
+                .collect::<Vec<_>>()
+            }),
+            PolygonPath::None => [
+                vec![StaticTriangle2d::new(*self.p1(), *self.p2(), *self.p3())],
+                vec![],
+            ],
         }
     }
 }
@@ -391,11 +474,28 @@ impl<'a, T: Triangle2d> Debug for TriangleLine<'a, T> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Hash)]
 pub enum TriangleSide {
     S1 = 0,
     S2 = 1,
     S3 = 2,
+}
+
+impl TriangleSide {
+    pub fn start_corner(&self) -> TriangleCornerPoint {
+        match self {
+            TriangleSide::S1 => TriangleCornerPoint::P1,
+            TriangleSide::S2 => TriangleCornerPoint::P2,
+            TriangleSide::S3 => TriangleCornerPoint::P3,
+        }
+    }
+    pub fn end_corner(&self) -> TriangleCornerPoint {
+        match self {
+            TriangleSide::S1 => TriangleCornerPoint::P2,
+            TriangleSide::S2 => TriangleCornerPoint::P3,
+            TriangleSide::S3 => TriangleCornerPoint::P1,
+        }
+    }
 }
 
 impl Into<usize> for TriangleSide {
@@ -456,9 +556,52 @@ fn pt_is_outside(pattern: &[SideOfLine; 3]) -> bool {
     pattern.iter().any(|s| *s == SideOfLine::Right)
 }
 */
-#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
+#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug, Hash)]
 pub enum TriangleCornerPoint {
     P1 = 0,
     P2 = 1,
     P3 = 2,
+}
+
+#[derive(Default, Eq, PartialEq, Debug, Copy, Clone)]
+enum TriangleCornerIteratorState {
+    #[default]
+    Begin,
+    P1,
+    P2,
+    P3,
+    Done,
+}
+
+impl TriangleCornerIteratorState {
+    fn corner(&self) -> Option<TriangleCornerPoint> {
+        match self {
+            TriangleCornerIteratorState::Begin => None,
+            TriangleCornerIteratorState::P1 => Some(TriangleCornerPoint::P1),
+            TriangleCornerIteratorState::P2 => Some(TriangleCornerPoint::P2),
+            TriangleCornerIteratorState::P3 => Some(TriangleCornerPoint::P3),
+            TriangleCornerIteratorState::Done => None,
+        }
+    }
+    fn move_forward(self) -> Self {
+        match self {
+            TriangleCornerIteratorState::Begin => TriangleCornerIteratorState::P1,
+            TriangleCornerIteratorState::P1 => TriangleCornerIteratorState::P2,
+            TriangleCornerIteratorState::P2 => TriangleCornerIteratorState::P3,
+            TriangleCornerIteratorState::P3 => TriangleCornerIteratorState::Done,
+            TriangleCornerIteratorState::Done => TriangleCornerIteratorState::Done,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct TriangleCornerIterator(TriangleCornerIteratorState);
+
+impl Iterator for TriangleCornerIterator {
+    type Item = TriangleCornerPoint;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0 = self.0.move_forward();
+        self.0.corner()
+    }
 }

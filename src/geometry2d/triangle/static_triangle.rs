@@ -1,5 +1,8 @@
 use std::fmt::{Debug, Formatter};
 
+use triangulate::Polygon;
+
+use crate::geometry2d::triangle::{TriangleCornerIterator, TriangleCornerPoint};
 use crate::geometry2d::{
     point::Point2d,
     polygon::{AnyPolygon, Polygon2d},
@@ -11,6 +14,29 @@ pub struct StaticTriangle2d {
     p1: Point2d,
     p2: Point2d,
     p3: Point2d,
+}
+
+impl<'p> Polygon<'p> for StaticTriangle2d {
+    type Vertex = Point2d;
+    type Index = TriangleCornerPoint;
+    type Iter<'i>    = TriangleCornerIterator  where Self: 'i, Self::Vertex: 'i, 'p: 'i;
+
+    fn vertex_count(&self) -> usize {
+        3
+    }
+
+    fn iter_indices<'i>(&'i self) -> Self::Iter<'i>
+    where
+        Self: 'i,
+        Self::Vertex: 'i,
+        'p: 'i,
+    {
+        Default::default()
+    }
+
+    fn get_vertex(&self, index: Self::Index) -> &Self::Vertex {
+        self.point(index)
+    }
 }
 
 impl Debug for StaticTriangle2d {
