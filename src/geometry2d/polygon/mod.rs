@@ -1,15 +1,11 @@
 use std::slice::Iter;
 
-#[cfg(test)]
-use svg::node::element::path::Data;
-
 use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
-#[cfg(test)]
-use crate::geometry2d::point::bounding_box::BoundingBoxSvg;
 use crate::geometry2d::point::StaticPoint2d;
 use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange, PointRangeIterator};
 use crate::geometry2d::triangle::static_triangle::StaticTriangle2d;
 use crate::geometry2d::triangle::TrianglePointIterator;
+use crate::prelude::BoundingBox;
 
 pub trait Polygon2d: Sized + Clone {
     type PointIter<'a>: Iterator<Item = &'a StaticPoint2d> + Clone
@@ -55,22 +51,9 @@ pub trait Polygon2d: Sized + Clone {
             PointPolygonRelationship::Inside
         }
     }
-    #[cfg(test)]
-    fn plot(&self, bbox: &BoundingBoxSvg) -> Option<Data> {
-        let mut iter = self.points();
-        if let Some(start_pt) = iter.next() {
-            let mut data = Data::new().move_to(bbox.apply(start_pt));
-            for next_pt in iter {
-                data = data.line_to(bbox.apply(next_pt));
-            }
-            Some(data.close())
-        } else {
-            None
-        }
-    }
-    #[cfg(test)]
-    fn bbox(&self) -> BoundingBoxSvg {
-        let mut ret: BoundingBoxSvg = Default::default();
+
+    fn bbox(&self) -> BoundingBox {
+        let mut ret: BoundingBox = Default::default();
         for p in self.points() {
             ret += *p;
         }

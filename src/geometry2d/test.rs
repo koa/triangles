@@ -1,16 +1,16 @@
 use ordered_float::OrderedFloat;
-use svg::node::element::path::Data;
-use svg::node::element::Path;
+use svg::node::element::path::{Data, Parameters};
+use svg::node::element::{Path, SVG};
+use svg::node::Value;
 use svg::Document;
 use triangulate::{formats, ListFormat, PolygonList};
 
 use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
-use crate::geometry2d::point::bounding_box::BoundingBoxSvg;
 use crate::geometry2d::point::StaticPoint2d;
 use crate::geometry2d::polygon::cut::PolygonPath;
 use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
 use crate::geometry2d::triangle::Triangle2d;
-use crate::prelude::StaticTriangle2d;
+use crate::prelude::{BoundingBox, BoundingBoxValues, Point2d, StaticTriangle2d};
 
 struct Figure {
     path: PathWay,
@@ -24,7 +24,7 @@ enum PathWay {
 }
 
 impl PathWay {
-    fn expand_bbox(&self, bbox: &mut BoundingBoxSvg) {
+    fn expand_bbox(&self, bbox: &mut BoundingBox) {
         match self {
             PathWay::Polygon(p) => {
                 for p in p.points() {
@@ -90,17 +90,85 @@ impl<T: Polygon2d> From<T> for Figure {
         }
     }
 }
+pub fn project(bbox: &BoundingBox, point: &StaticPoint2d) -> Parameters {
+    let x = point.x.0 as f32;
+    let y = -point.y.0 as f32;
+    match bbox {
+        BoundingBox::Empty => Parameters::from((x, y)),
+        BoundingBox::Box(BoundingBoxValues { min_x, min_y, .. }) => {
+            Parameters::from((x - min_x.0 as f32, y - min_y.0 as f32))
+        }
+    }
+}
+#[inline]
+fn point2svg<P: Point2d>(rhs: &P) -> (f32, f32) {
+    (rhs.x().0 as f32, -rhs.y().0 as f32)
+}
+
+pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
+    if let BoundingBox::Box(BoundingBoxValues {
+        min_x,
+        min_y,
+        max_x,
+        max_y,
+    }) = *bbox
+    {
+        let svg = if *min_x <= 0.0 && *max_x >= 0.0 {
+            let min_pt = project(bbox, &(0.0, *min_y as f64).into());
+            let max_pt = project(bbox, &(0.0, *max_y as f64).into());
+            svg.add(
+                Path::new()
+                    .set("fill", "none")
+                    .set("stroke", "blue")
+                    .set("stroke-width", 0.1)
+                    .set("d", Data::new().move_to(min_pt).line_to(max_pt)),
+            )
+        } else {
+            svg
+        };
+        if *min_y <= 0.0 && *max_y >= 0.0 {
+            let min_pt = project(bbox, &(*min_x as f64, 0.0).into());
+            let max_pt = project(bbox, &(*max_x as f64, 0.0).into());
+            svg.add(
+                Path::new()
+                    .set("fill", "none")
+                    .set("stroke", "blue")
+                    .set("stroke-width", 0.1)
+                    .set("d", Data::new().move_to(min_pt).line_to(max_pt)),
+            )
+        } else {
+            svg
+        }
+    } else {
+        svg
+    }
+}
+fn bbox2value(bbox: &BoundingBox) -> Value {
+    match bbox {
+        BoundingBox::Empty => "".into(),
+        BoundingBox::Box(BoundingBoxValues {
+            min_x,
+            min_y,
+            max_x,
+            max_y,
+        }) => {
+            let span_x = *max_x - *min_x;
+            let span_y = *max_y - *min_y;
+            (0, 0, span_x.0, span_y.0).into()
+        }
+    }
+}
 
 impl DisplayList {
     fn append_figure(&mut self, figure: Figure) {
         self.entries.push(figure);
     }
     fn plot<T: AsRef<std::path::Path>>(&self, path: T) -> std::io::Result<()> {
-        let mut bbox: BoundingBoxSvg = Default::default();
+        let mut bbox: BoundingBox = Default::default();
         for f in &self.entries {
             f.path.expand_bbox(&mut bbox);
         }
-        let mut svg = bbox.plot_coordinates(Document::new().set("viewBox", bbox));
+        let mut svg = plot_coordinates(&bbox, Document::new().set("viewBox", bbox2value(&bbox)));
         for f in &self.entries {
             let fill = f.fill.as_deref().unwrap_or("none");
             let color = f.stroke.as_deref().unwrap_or("black");
@@ -114,9 +182,9 @@ impl DisplayList {
                 PathWay::PointList(points) => {
                     let mut iter = points.iter();
                     if let Some(start_pt) = iter.next() {
-                        let mut data = Data::new().move_to(bbox.apply(start_pt));
+                        let mut data = Data::new().move_to(project(&bbox, start_pt));
                         for next_pt in iter {
-                            data = data.line_to(bbox.apply(next_pt));
+                            data = data.line_to(project(&bbox, next_pt));
                         }
                         let path = Path::new()
                             .set("fill", fill)
@@ -131,15 +199,27 @@ impl DisplayList {
         svg::save(path, &svg)
     }
 }
+fn plot<P: Polygon2d>(polygon: &P, bbox: &BoundingBox) -> Option<Data> {
+    let mut iter = polygon.points();
+    if let Some(start_pt) = iter.next() {
+        let mut data = Data::new().move_to(project(&bbox, start_pt));
+        for next_pt in iter {
+            data = data.line_to(project(&bbox, next_pt));
+        }
+        Some(data.close())
+    } else {
+        None
+    }
+}
 
 fn create_path<P: Polygon2d>(
-    bbox: &BoundingBoxSvg,
+    bbox: &BoundingBox,
     polygon: &P,
     fill: &str,
     color: &str,
     width: u8,
 ) -> Option<Path> {
-    polygon.plot(bbox).map(|data| {
+    plot(polygon, bbox).map(|data| {
         Path::new()
             .set("fill", fill)
             .set("stroke", color)
