@@ -5,7 +5,7 @@ use svg::node::element::path::Data;
 
 use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
 #[cfg(test)]
-use crate::geometry2d::point::BoundingBoxSvg;
+use crate::geometry2d::point::bounding_box::BoundingBoxSvg;
 use crate::geometry2d::point::Point2d;
 use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange, PointRangeIterator};
 use crate::geometry2d::triangle::static_triangle::StaticTriangle2d;

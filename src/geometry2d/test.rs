@@ -5,7 +5,8 @@ use svg::Document;
 use triangulate::{formats, ListFormat, PolygonList};
 
 use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
-use crate::geometry2d::point::{BoundingBoxSvg, Point2d};
+use crate::geometry2d::point::bounding_box::BoundingBoxSvg;
+use crate::geometry2d::point::Point2d;
 use crate::geometry2d::polygon::cut::PolygonPath;
 use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
 use crate::geometry2d::triangle::Triangle2d;
