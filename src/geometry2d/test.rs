@@ -3,7 +3,7 @@ use svg::node::element::path::{Data, Parameters};
 use svg::node::element::{Path, SVG};
 use svg::node::Value;
 use svg::Document;
-use triangulate::{formats, ListFormat, PolygonList};
+use triangulate::{formats, ListFormat, Mappable, PolygonList};
 
 use crate::geometry2d::line::{Line2d, SideOfLine, StaticLine2d};
 use crate::geometry2d::point::StaticPoint2d;
@@ -12,42 +12,48 @@ use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
 use crate::geometry2d::triangle::Triangle2d;
 use crate::prelude::{BoundingBox, BoundingBoxValues, Point2d, StaticTriangle2d};
 
-struct Figure {
-    path: PathWay,
+struct Figure<Pt: Point2d> {
+    path: PathWay<Pt>,
     fill: Option<String>,
     stroke: Option<String>,
     width: Option<u8>,
 }
-enum PathWay {
-    Polygon(AnyPolygon),
-    PointList(Vec<StaticPoint2d>),
+enum PathWay<Pt: Point2d> {
+    Polygon(AnyPolygon<Pt>),
+    PointList(Vec<Pt>),
 }
 
-impl PathWay {
+impl<Pt: Point2d> PathWay<Pt> {
     fn expand_bbox(&self, bbox: &mut BoundingBox) {
         match self {
             PathWay::Polygon(p) => {
                 for p in p.points() {
-                    *bbox += *p;
+                    *bbox += p.coordinates();
                 }
             }
             PathWay::PointList(l) => {
                 for p in l {
-                    *bbox += *p;
+                    *bbox += p.coordinates();
                 }
             }
         }
     }
 }
 
-impl<P: Polygon2d> From<P> for PathWay {
+/*
+impl<P, Pt> From<P> for PathWay<Pt>
+where
+    P: Polygon2d<Pt>,
+{
     fn from(value: P) -> Self {
         Self::Polygon(value.to_any_polygon())
     }
 }
 
-impl Figure {
-    fn from_polygon<P: Polygon2d, F: ToString, S: ToString, W: Into<u8>>(
+ */
+
+impl<Pt: Point2d> Figure<Pt> {
+    fn from_polygon<P: Polygon2d<Pt>, F: ToString, S: ToString, W: Into<u8>>(
         polygon: P,
         fill: F,
         stroke: S,
@@ -61,7 +67,7 @@ impl Figure {
         }
     }
     fn from_points<F: ToString, S: ToString, W: Into<u8>>(
-        points: Vec<StaticPoint2d>,
+        points: Vec<Pt>,
         fill: F,
         stroke: S,
         width: W,
@@ -75,34 +81,29 @@ impl Figure {
     }
 }
 
-#[derive(Default)]
-struct DisplayList {
-    entries: Vec<Figure>,
+struct DisplayList<Pt: Point2d> {
+    entries: Vec<Figure<Pt>>,
 }
 
-impl<T: Polygon2d> From<T> for Figure {
-    fn from(value: T) -> Self {
-        Figure {
-            path: PathWay::Polygon(value.to_any_polygon()),
-            fill: None,
-            stroke: None,
-            width: None,
-        }
+impl<Pt: Point2d> Default for DisplayList<Pt> {
+    fn default() -> Self {
+        Self { entries: vec![] }
     }
 }
-pub fn project(bbox: &BoundingBox, point: &StaticPoint2d) -> Parameters {
-    let x = point.x.0 as f32;
-    let y = -point.y.0 as f32;
+
+pub fn project<Pt: Point2d>(bbox: &BoundingBox, point: &Pt) -> Parameters {
+    let StaticPoint2d { x, y } = point.coordinates();
     match bbox {
-        BoundingBox::Empty => Parameters::from((x, y)),
+        BoundingBox::Empty => Parameters::from((x.0 as f32, y.0 as f32)),
         BoundingBox::Box(BoundingBoxValues { min_x, min_y, .. }) => {
-            Parameters::from((x - min_x.0 as f32, y - min_y.0 as f32))
+            Parameters::from((x.0 as f32 - min_x.0 as f32, y.0 as f32 - min_y.0 as f32))
         }
     }
 }
 #[inline]
 fn point2svg<P: Point2d>(rhs: &P) -> (f32, f32) {
-    (rhs.x().0 as f32, -rhs.y().0 as f32)
+    let StaticPoint2d { x, y } = rhs.coordinates();
+    (x.0 as f32, -y.0 as f32)
 }
 
 pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
@@ -114,8 +115,8 @@ pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
     }) = *bbox
     {
         let svg = if *min_x <= 0.0 && *max_x >= 0.0 {
-            let min_pt = project(bbox, &(0.0, *min_y as f64).into());
-            let max_pt = project(bbox, &(0.0, *max_y as f64).into());
+            let min_pt = project::<StaticPoint2d>(bbox, &(0.0, *min_y as f64).into());
+            let max_pt = project::<StaticPoint2d>(bbox, &(0.0, *max_y as f64).into());
             svg.add(
                 Path::new()
                     .set("fill", "none")
@@ -127,8 +128,8 @@ pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
             svg
         };
         if *min_y <= 0.0 && *max_y >= 0.0 {
-            let min_pt = project(bbox, &(*min_x as f64, 0.0).into());
-            let max_pt = project(bbox, &(*max_x as f64, 0.0).into());
+            let min_pt = project::<StaticPoint2d>(bbox, &(*min_x as f64, 0.0).into());
+            let max_pt = project::<StaticPoint2d>(bbox, &(*max_x as f64, 0.0).into());
             svg.add(
                 Path::new()
                     .set("fill", "none")
@@ -159,8 +160,8 @@ fn bbox2value(bbox: &BoundingBox) -> Value {
     }
 }
 
-impl DisplayList {
-    fn append_figure(&mut self, figure: Figure) {
+impl<Pt: Point2d> DisplayList<Pt> {
+    fn append_figure(&mut self, figure: Figure<Pt>) {
         self.entries.push(figure);
     }
     fn plot<T: AsRef<std::path::Path>>(&self, path: T) -> std::io::Result<()> {
@@ -199,7 +200,7 @@ impl DisplayList {
         svg::save(path, &svg)
     }
 }
-fn plot<P: Polygon2d>(polygon: &P, bbox: &BoundingBox) -> Option<Data> {
+fn plot<P: Polygon2d<Pt>, Pt: Point2d>(polygon: &P, bbox: &BoundingBox) -> Option<Data> {
     let mut iter = polygon.points();
     if let Some(start_pt) = iter.next() {
         let mut data = Data::new().move_to(project(&bbox, start_pt));
@@ -212,7 +213,7 @@ fn plot<P: Polygon2d>(polygon: &P, bbox: &BoundingBox) -> Option<Data> {
     }
 }
 
-fn create_path<P: Polygon2d>(
+fn create_path<P: Polygon2d<Pt>, Pt: Point2d>(
     bbox: &BoundingBox,
     polygon: &P,
     fill: &str,
@@ -230,7 +231,11 @@ fn create_path<P: Polygon2d>(
 
 #[test]
 fn test_triangle_point_iterator() {
-    let tr = StaticTriangle2d::new((2.0, 0.0).into(), (3.0, 0.0).into(), (2.0, 1.0).into());
+    let tr = StaticTriangle2d::<StaticPoint2d>::new(
+        (2.0, 0.0).into(),
+        (3.0, 0.0).into(),
+        (2.0, 1.0).into(),
+    );
     let mut iterator = tr.points();
     assert_eq!(3, iterator.len());
     assert_eq!(Some(&(2.0, 0.0).into()), iterator.next());
@@ -246,17 +251,31 @@ fn test_triangle_point_iterator() {
 fn test_area() {
     assert_eq!(
         OrderedFloat::from(0.5),
-        StaticTriangle2d::new((2.0, 0.0).into(), (3.0, 0.0).into(), (2.0, 1.0).into()).area()
+        StaticTriangle2d::<StaticPoint2d>::new(
+            (2.0, 0.0).into(),
+            (3.0, 0.0).into(),
+            (2.0, 1.0).into()
+        )
+        .area()
     );
     assert_eq!(
         OrderedFloat::from(-0.5),
-        StaticTriangle2d::new((2.0, 0.0).into(), (2.0, 1.0).into(), (3.0, 0.0).into()).area()
+        StaticTriangle2d::<StaticPoint2d>::new(
+            (2.0, 0.0).into(),
+            (2.0, 1.0).into(),
+            (3.0, 0.0).into()
+        )
+        .area()
     );
 }
 
 #[test]
 fn test_triangle_line_iterator() {
-    let tr = StaticTriangle2d::new((2.0, 0.0).into(), (3.0, 0.0).into(), (2.0, 1.0).into());
+    let tr = StaticTriangle2d::<StaticPoint2d>::new(
+        (2.0, 0.0).into(),
+        (3.0, 0.0).into(),
+        (2.0, 1.0).into(),
+    );
     let mut iterator = tr.lines();
     assert!(iterator
         .next()
@@ -275,12 +294,12 @@ fn test_triangle_line_iterator() {
 
 #[test]
 fn test_side_of_line() {
-    let l1 = StaticLine2d::new((0.0, 0.0).into(), (2.0, 2.0).into());
+    let l1 = StaticLine2d::<StaticPoint2d>::new((0.0, 0.0).into(), (2.0, 2.0).into());
     assert_eq!(SideOfLine::Left, l1.side_of_pt(&(0.0, 1.0).into()));
     assert_eq!(SideOfLine::Hit, l1.side_of_pt(&(1.0, 1.0).into()));
     assert_eq!(SideOfLine::Right, l1.side_of_pt(&(1.0, 0.0).into()));
 
-    let l2 = StaticLine2d::new((2.0, 2.0).into(), (0.0, 0.0).into());
+    let l2 = StaticLine2d::<StaticPoint2d>::new((2.0, 2.0).into(), (0.0, 0.0).into());
     assert_eq!(SideOfLine::Right, l2.side_of_pt(&(0.0, 1.0).into()));
     assert_eq!(SideOfLine::Hit, l2.side_of_pt(&(1.0, 1.0).into()));
     assert_eq!(SideOfLine::Left, l2.side_of_pt(&(1.0, 0.0).into()));
@@ -288,12 +307,12 @@ fn test_side_of_line() {
 
 #[test]
 fn test_triangle_error() {
-    let big_triangle = StaticTriangle2d::new(
+    let big_triangle = StaticTriangle2d::<StaticPoint2d>::new(
         (-100.0, 0.0).into(),
         (100.0, 0.0).into(),
         (0.0, 100.0).into(),
     );
-    let small_triangle = StaticTriangle2d::new(
+    let small_triangle = StaticTriangle2d::<StaticPoint2d>::new(
         (-50.0, 25.0).into(),
         (00.0, -25.0).into(),
         (50.0, 25.0).into(),
@@ -330,7 +349,7 @@ fn test_polygon_intersection() {
         (100.0, -50.0).into(),
         (0.0, 50.0).into(),
     );
-    let small_triangle = StaticTriangle2d::new(
+    let small_triangle = StaticTriangle2d::<StaticPoint2d>::new(
         (-50.0, 25.0).into(),
         (0.0, -25.0).into(),
         (50.0, 25.0).into(),
@@ -340,7 +359,7 @@ fn test_polygon_intersection() {
     let cut_polygon = &small_triangle;
     let path = big_triangle.cut(cut_polygon);
     println!("Path: {path:?}");
-    let mut list = DisplayList::default();
+    let mut list = DisplayList::<StaticPoint2d>::default();
     match &path {
         PolygonPath::Enclosed => {
             list.append_figure(Figure::from_polygon(cut_polygon.clone(), "none", "red", 2))
@@ -372,7 +391,12 @@ fn test_polygon_intersection() {
         let stroke = colors.next().unwrap();
         let show = show.next().unwrap();
         if *show {
-            list.append_figure(Figure::from_polygon(polygon.clone(), "none", stroke, 2));
+            list.append_figure(Figure::from_polygon(
+                polygon.map(|p| p.coordinates_triangle()).clone(),
+                "none",
+                stroke,
+                2,
+            ));
         }
     }
     //list.append_figure(big_triangle.into());

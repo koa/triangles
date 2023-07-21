@@ -16,15 +16,6 @@ pub struct StaticPoint2d {
 }
 
 impl Point2d for StaticPoint2d {
-    #[inline]
-    fn x(&self) -> Number {
-        self.x
-    }
-    #[inline]
-    fn y(&self) -> Number {
-        self.y
-    }
-
     fn coordinates(&self) -> StaticPoint2d {
         *self
     }

@@ -1,30 +1,32 @@
+use std::marker::PhantomData;
 use std::slice::Iter;
 
 use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
-use crate::geometry2d::point::StaticPoint2d;
 use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange, PointRangeIterator};
 use crate::geometry2d::triangle::static_triangle::StaticTriangle2d;
 use crate::geometry2d::triangle::TrianglePointIterator;
-use crate::prelude::BoundingBox;
+use crate::prelude::{BoundingBox, Point2d};
 
-pub trait Polygon2d: Sized + Clone {
-    type PointIter<'a>: Iterator<Item = &'a StaticPoint2d> + Clone
+pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq {
+    type PointIter<'a>: Iterator<Item = &'a P> + Clone
     where
-        Self: 'a;
+        Self: 'a,
+        P: 'a;
     fn points(&self) -> Self::PointIter<'_>;
     fn point_count(&self) -> usize;
-    fn to_any_polygon(self) -> AnyPolygon;
-    fn points_of_range(&self, range: &PointRange) -> PolygonRangeIterator<Self> {
+    fn to_any_polygon(self) -> AnyPolygon<P>;
+    fn points_of_range(&self, range: &PointRange) -> PolygonRangeIterator<Self, P> {
         PolygonRangeIterator {
+            phantom: Default::default(),
             polygon: self,
             idx_iterator: range.iter(),
         }
     }
-    fn get_point(&self, idx: usize) -> Option<&StaticPoint2d>;
-    fn lines(&self) -> PolygonLineIterator<Self::PointIter<'_>> {
+    fn get_point(&self, idx: usize) -> Option<&P>;
+    fn lines(&self) -> PolygonLineIterator<Self::PointIter<'_>, P> {
         PolygonLineIterator::new(self.points())
     }
-    fn point_position(&self, p: &StaticPoint2d) -> PointPolygonRelationship {
+    fn point_position(&self, p: &P) -> PointPolygonRelationship {
         let mut right_count = 0;
         for line in self.lines() {
             match line.y_cross_side(p) {
@@ -55,19 +57,20 @@ pub trait Polygon2d: Sized + Clone {
     fn bbox(&self) -> BoundingBox {
         let mut ret: BoundingBox = Default::default();
         for p in self.points() {
-            ret += *p;
+            ret += p.coordinates();
         }
         ret
     }
 }
 
-pub struct PolygonRangeIterator<'a, P: Polygon2d> {
-    polygon: &'a P,
+pub struct PolygonRangeIterator<'a, Poly: Polygon2d<Pt>, Pt: Point2d> {
+    phantom: PhantomData<Pt>,
+    polygon: &'a Poly,
     idx_iterator: PointRangeIterator,
 }
 
-impl<'a, P: Polygon2d> Iterator for PolygonRangeIterator<'a, P> {
-    type Item = &'a StaticPoint2d;
+impl<'a, Poly: Polygon2d<Pt>, Pt: Point2d + 'a> Iterator for PolygonRangeIterator<'a, Poly, Pt> {
+    type Item = &'a Pt;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.idx_iterator
@@ -77,18 +80,20 @@ impl<'a, P: Polygon2d> Iterator for PolygonRangeIterator<'a, P> {
 }
 
 #[derive(Clone)]
-pub enum PolygonLineIterator<'a, I: Iterator<Item = &'a StaticPoint2d> + Clone> {
+pub enum PolygonLineIterator<'a, I: Iterator<Item = &'a Pt> + Clone, Pt: Point2d> {
     Found {
         iterator: I,
-        first_point: &'a StaticPoint2d,
-        last_point: &'a StaticPoint2d,
+        first_point: &'a Pt,
+        last_point: &'a Pt,
         done: bool,
     },
     Empty,
 }
 
-impl<'a, I: Iterator<Item = &'a StaticPoint2d> + Clone> Iterator for PolygonLineIterator<'a, I> {
-    type Item = ReferenceLine2d<'a>;
+impl<'a, I: Iterator<Item = &'a Pt> + Clone, Pt: Point2d> Iterator
+    for PolygonLineIterator<'a, I, Pt>
+{
+    type Item = ReferenceLine2d<'a, Pt>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -101,7 +106,7 @@ impl<'a, I: Iterator<Item = &'a StaticPoint2d> + Clone> Iterator for PolygonLine
                 if *done {
                     None
                 } else if let Some(next_point) = iterator.next() {
-                    let next_line = ReferenceLine2d::new(last_point, next_point);
+                    let next_line = ReferenceLine2d::<'a, Pt>::new(last_point, next_point);
                     *last_point = next_point;
                     Some(next_line)
                 } else {
@@ -114,7 +119,7 @@ impl<'a, I: Iterator<Item = &'a StaticPoint2d> + Clone> Iterator for PolygonLine
     }
 }
 
-impl<'a, I: Iterator<Item = &'a StaticPoint2d> + Clone> PolygonLineIterator<'a, I> {
+impl<'a, I: Iterator<Item = &'a Pt> + Clone, Pt: Point2d> PolygonLineIterator<'a, I, Pt> {
     fn new(mut iterator: I) -> Self {
         if let Some(first_point) = iterator.next() {
             PolygonLineIterator::Found {
@@ -131,10 +136,8 @@ impl<'a, I: Iterator<Item = &'a StaticPoint2d> + Clone> PolygonLineIterator<'a, 
 
 pub mod cut;
 
-impl Polygon2d for Vec<StaticPoint2d> {
-    type PointIter<'a>
-
-    = Iter<'a, StaticPoint2d> where Self: 'a;
+impl<Pt: Point2d> Polygon2d<Pt> for Vec<Pt> {
+    type PointIter<'a>    = Iter<'a, Pt> where Self: 'a;
 
     fn points(&self) -> Self::PointIter<'_> {
         self.iter()
@@ -144,28 +147,28 @@ impl Polygon2d for Vec<StaticPoint2d> {
         self.len()
     }
 
-    fn to_any_polygon(self) -> AnyPolygon {
+    fn to_any_polygon(self) -> AnyPolygon<Pt> {
         AnyPolygon::VecPointPolygon(self)
     }
 
-    fn get_point(&self, idx: usize) -> Option<&StaticPoint2d> {
+    fn get_point(&self, idx: usize) -> Option<&Pt> {
         self.get(idx)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum AnyPolygon {
-    VecPointPolygon(Vec<StaticPoint2d>),
-    StaticTrianglePolygon(StaticTriangle2d),
+pub enum AnyPolygon<P: Point2d> {
+    VecPointPolygon(Vec<P>),
+    StaticTrianglePolygon(StaticTriangle2d<P>),
 }
 #[derive(Debug, Clone)]
-pub enum AnyPolygonPointIter<'a> {
-    VecPointPolygon(Iter<'a, StaticPoint2d>),
-    StaticTrianglePolygon(TrianglePointIterator<'a, StaticTriangle2d>),
+pub enum AnyPolygonPointIter<'a, Pt: Point2d> {
+    VecPointPolygon(Iter<'a, Pt>),
+    StaticTrianglePolygon(TrianglePointIterator<'a, StaticTriangle2d<Pt>, Pt>),
 }
 
-impl<'a> Iterator for AnyPolygonPointIter<'a> {
-    type Item = &'a StaticPoint2d;
+impl<'a, Pt: Point2d> Iterator for AnyPolygonPointIter<'a, Pt> {
+    type Item = &'a Pt;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -175,8 +178,8 @@ impl<'a> Iterator for AnyPolygonPointIter<'a> {
     }
 }
 
-impl Polygon2d for AnyPolygon {
-    type PointIter<'a>    = AnyPolygonPointIter<'a> where      Self: 'a,;
+impl<Pt: Point2d> Polygon2d<Pt> for AnyPolygon<Pt> {
+    type PointIter<'a>    = AnyPolygonPointIter<'a, Pt> where      Self: 'a,;
 
     fn points(&self) -> Self::PointIter<'_> {
         match self {
@@ -194,11 +197,11 @@ impl Polygon2d for AnyPolygon {
         }
     }
 
-    fn to_any_polygon(self) -> AnyPolygon {
+    fn to_any_polygon(self) -> AnyPolygon<Pt> {
         self
     }
 
-    fn get_point(&self, idx: usize) -> Option<&StaticPoint2d> {
+    fn get_point(&self, idx: usize) -> Option<&Pt> {
         match self {
             AnyPolygon::VecPointPolygon(p) => p.get_point(idx),
             AnyPolygon::StaticTrianglePolygon(p) => p.get_point(idx),
