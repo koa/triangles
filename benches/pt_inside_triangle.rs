@@ -3,9 +3,7 @@ use ordered_float::OrderedFloat;
 use rand::prelude::ThreadRng;
 use rand::Rng;
 
-use triangles::geometry2d::{Point2d, StaticTriangle2d, Triangle2d};
-
-fn create_triangles(count: usize, random: &mut ThreadRng) -> Vec<StaticTriangle2d> {
+fn create_triangles(count: usize, random: &mut ThreadRng) -> Vec<StaticTriangle2d<StaticPoint2d>> {
     let mut ret = Vec::with_capacity(count);
     while ret.len() < count {
         let candidate =
@@ -17,25 +15,26 @@ fn create_triangles(count: usize, random: &mut ThreadRng) -> Vec<StaticTriangle2
     ret
 }
 
-fn random_pt(random: &mut ThreadRng) -> Point2d {
+fn random_pt(random: &mut ThreadRng) -> StaticPoint2d {
     (random.gen_range(0.0..1.0), random.gen_range(0.0..1.0)).into()
 }
 
-fn triangle_contains(triangles: &[StaticTriangle2d], points: &[Point2d]) {
+fn triangle_contains(triangles: &[StaticTriangle2d<StaticPoint2d>], points: &[StaticPoint2d]) {
     for triangle in triangles {
         for point in points {
             triangle.contains_pt(point);
         }
     }
 }
-fn polygon_contains(triangles: &[StaticTriangle2d], points: &[Point2d]) {
+fn polygon_contains(triangles: &[StaticTriangle2d<StaticPoint2d>], points: &[StaticPoint2d]) {
     for triangle in triangles {
         for point in points {
             triangle.point_position(point);
         }
     }
 }
-use triangles::geometry2d::Polygon2d;
+use triangles::prelude::{Polygon2d, StaticPoint2d, StaticTriangle2d, Triangle2d};
+
 fn criterion_benchmark(c: &mut Criterion) {
     let mut random = rand::thread_rng();
     let triangles = create_triangles(500, &mut random);

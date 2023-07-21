@@ -110,8 +110,8 @@ pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
     }) = *bbox
     {
         let svg = if *min_x <= 0.0 && *max_x >= 0.0 {
-            let min_pt = project::<StaticPoint2d>(bbox, &(0.0, *min_y as f64).into());
-            let max_pt = project::<StaticPoint2d>(bbox, &(0.0, *max_y as f64).into());
+            let min_pt = project::<StaticPoint2d>(bbox, &(0.0, *min_y).into());
+            let max_pt = project::<StaticPoint2d>(bbox, &(0.0, *max_y).into());
             svg.add(
                 Path::new()
                     .set("fill", "none")
@@ -123,8 +123,8 @@ pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
             svg
         };
         if *min_y <= 0.0 && *max_y >= 0.0 {
-            let min_pt = project::<StaticPoint2d>(bbox, &(*min_x as f64, 0.0).into());
-            let max_pt = project::<StaticPoint2d>(bbox, &(*max_x as f64, 0.0).into());
+            let min_pt = project::<StaticPoint2d>(bbox, &(*min_x, 0.0).into());
+            let max_pt = project::<StaticPoint2d>(bbox, &(*max_x, 0.0).into());
             svg.add(
                 Path::new()
                     .set("fill", "none")
@@ -198,9 +198,9 @@ impl<Pt: Point2d> DisplayList<Pt> {
 fn plot<P: Polygon2d<Pt>, Pt: Point2d>(polygon: &P, bbox: &BoundingBox) -> Option<Data> {
     let mut iter = polygon.points();
     if let Some(start_pt) = iter.next() {
-        let mut data = Data::new().move_to(project(&bbox, start_pt));
+        let mut data = Data::new().move_to(project(bbox, start_pt));
         for next_pt in iter {
-            data = data.line_to(project(&bbox, next_pt));
+            data = data.line_to(project(bbox, next_pt));
         }
         Some(data.close())
     } else {
@@ -357,7 +357,7 @@ fn test_polygon_intersection() {
     let mut list = DisplayList::<StaticPoint2d>::default();
     match &path {
         PolygonPath::Enclosed => {
-            list.append_figure(Figure::from_polygon(cut_polygon.clone(), "none", "red", 2))
+            list.append_figure(Figure::from_polygon(*cut_polygon, "none", "red", 2))
         }
         PolygonPath::CutSegments(segments) => {
             for segment in segments {
@@ -387,7 +387,7 @@ fn test_polygon_intersection() {
         let show = show.next().unwrap();
         if *show {
             list.append_figure(Figure::from_polygon(
-                polygon.map(|p| p.coordinates_triangle()).clone(),
+                polygon.map(|p| p.coordinates_triangle()),
                 "none",
                 stroke,
                 2,

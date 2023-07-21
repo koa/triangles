@@ -111,19 +111,17 @@ impl Iterator for PointRangeIterator {
                 next_value,
                 forward,
             } => {
-                if let Some(value) = next_value.clone() {
+                if let Some(value) = *next_value {
                     *next_value = if *forward {
                         if value < *last_idx {
                             Some(value + 1)
                         } else {
                             None
                         }
+                    } else if value > *last_idx {
+                        Some(value - 1)
                     } else {
-                        if value > *last_idx {
-                            Some(value - 1)
-                        } else {
-                            None
-                        }
+                        None
                     };
                     Some(value)
                 } else {
@@ -145,14 +143,12 @@ impl Iterator for PointRangeIterator {
                         } else {
                             Some(0)
                         }
+                    } else if value == *last_idx {
+                        None
+                    } else if value == 0 {
+                        Some(*point_count - 1)
                     } else {
-                        if value == *last_idx {
-                            None
-                        } else if value == 0 {
-                            Some(*point_count - 1)
-                        } else {
-                            Some(value - 1)
-                        }
+                        Some(value - 1)
                     };
                     Some(value)
                 } else {

@@ -119,9 +119,9 @@ pub enum LineIntersection {
     None,
 }
 
-impl Into<Option<(Number, Number)>> for LineIntersection {
-    fn into(self) -> Option<(Number, Number)> {
-        match self {
+impl From<LineIntersection> for Option<(Number, Number)> {
+    fn from(val: LineIntersection) -> Self {
+        match val {
             LineIntersection::Point { my_pos, other_pos } => Some((my_pos, other_pos)),
             LineIntersection::None => None,
         }

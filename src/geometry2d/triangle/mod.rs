@@ -550,9 +550,9 @@ impl TriangleSide {
     }
 }
 
-impl Into<usize> for TriangleSide {
-    fn into(self) -> usize {
-        match self {
+impl From<TriangleSide> for usize {
+    fn from(val: TriangleSide) -> Self {
+        match val {
             TriangleSide::S1 => 0,
             TriangleSide::S2 => 1,
             TriangleSide::S3 => 2,
@@ -560,9 +560,9 @@ impl Into<usize> for TriangleSide {
     }
 }
 
-impl Into<TriangleSide> for usize {
-    fn into(self) -> TriangleSide {
-        match self {
+impl From<usize> for TriangleSide {
+    fn from(value: usize) -> Self {
+        match value {
             0 => TriangleSide::S1,
             1 => TriangleSide::S2,
             2 => TriangleSide::S3,
