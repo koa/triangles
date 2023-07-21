@@ -107,11 +107,12 @@ impl<Pt: Point2d> Triangle2d<Pt> for StaticTriangle2d<Pt> {
         &self.p3
     }
 
+    /*
     fn reverse(&self) -> Self {
         Self {
             p1: self.p1.clone(),
             p2: self.p3.clone(),
             p3: self.p2.clone(),
         }
-    }
+    }*/
 }

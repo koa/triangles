@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::slice::Iter;
 
@@ -7,7 +8,7 @@ use crate::geometry2d::triangle::static_triangle::StaticTriangle2d;
 use crate::geometry2d::triangle::TrianglePointIterator;
 use crate::prelude::{BoundingBox, Point2d};
 
-pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq {
+pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq + Debug {
     type PointIter<'a>: Iterator<Item = &'a P> + Clone
     where
         Self: 'a,

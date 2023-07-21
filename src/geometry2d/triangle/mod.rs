@@ -13,6 +13,10 @@ use thiserror::Error;
 use triangulate::{formats, ListFormat, Polygon, PolygonList, Vertex};
 
 use crate::geometry2d::line::StaticLine2d;
+use crate::geometry2d::triangle::found_triangle::{
+    found_cross_point, found_original_triangle, found_polygon_point, found_triangle_corner,
+    FoundPoint, FoundTriangle,
+};
 use crate::{
     geometry2d::{
         line::{Line2d, LineIntersection, ReferenceLine2d, SideOfLine},
@@ -28,54 +32,8 @@ use crate::{
 };
 
 mod cut;
+mod found_triangle;
 pub mod static_triangle;
-mod found_triangle {
-    use std::fmt::Debug;
-    use std::marker::PhantomData;
-
-    use triangulate::Vertex;
-
-    use crate::geometry2d::triangle::{TriangleCornerPoint, TriangleSide};
-    use crate::prelude::{Number, Point2d, Polygon2d, Triangle2d};
-
-    enum FoundTriangle<T: Triangle2d<P>, P: Point2d> {
-        Original(T),
-        _PhantomEntry(PhantomData<P>),
-    }
-    #[derive(Copy, Clone, PartialEq, Debug)]
-    enum FoundPoint<'t, Pt2: Point2d, Pt: Point2d, T: Triangle2d<Pt>, P: Polygon2d<Pt2>> {
-        TriangleCorner {
-            corner: TriangleCornerPoint,
-            triangle: &'t T,
-            phantom: PhantomData<Pt>,
-        },
-        PolygonPoint {
-            idx: usize,
-            polygon: &'t P,
-            phantom: PhantomData<Pt2>,
-        },
-        CrossPoint {
-            triangle_side: TriangleSide,
-            triangle: &'t T,
-            polygon_idx: usize,
-            polygon: &'t P,
-        },
-    }
-
-    impl<Pt2: Point2d, Pt: Point2d, T: Triangle2d<Pt>, P: Polygon2d<Pt2>> Vertex
-        for FoundPoint<'_, Pt2, Pt, T, P>
-    {
-        type Coordinate = Number;
-
-        fn x(&self) -> Self::Coordinate {
-            todo!()
-        }
-
-        fn y(&self) -> Self::Coordinate {
-            todo!()
-        }
-    }
-}
 
 pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
     fn p1(&self) -> &P;
@@ -139,7 +97,7 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
             self.l3().side_of_pt(p),
         ]
     }
-    fn reverse(&self) -> Self;
+    //fn reverse(&self) -> Self;
 
     fn find_cutting_edge<Pt: Point2d, L: Line2d<Pt>>(
         &self,
@@ -344,11 +302,14 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
             PolygonPath::None
         }
     }
-    fn triangulate_cut_polygons<Poly: Polygon2d<P> + Debug>(
-        &self,
-        cut_polygon: &Poly,
+    fn triangulate_cut_polygons<'a, Poly: Polygon2d<P> + Debug + 'a>(
+        &'a self,
+        cut_polygon: &'a Poly,
         path: &PolygonPath,
-    ) -> [Vec<StaticTriangle2d<TriangulateResultPoint>>; 2] {
+    ) -> [Vec<FoundTriangle<'a, Self, P, Poly, P>>; 2]
+    where
+        P: 'a,
+    {
         match path {
             PolygonPath::Enclosed => {
                 let outer_polygon: Vec<P> = self.points().cloned().collect();
@@ -361,16 +322,12 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                             .into_fan_format(),
                     )
                     .expect("Error triangulate outer polygons");
-                let point_iter = outer_triangles.iter().map(|p| {
-                    let point = outer_shape[p[0]][p[1]].coordinates();
-                    let origin = match p[0] {
-                        0 => TrianglePointOrigin::TrianglePoint(
-                            p[1].try_into().expect("Invalid corner index"),
-                        ),
-                        1 => TrianglePointOrigin::PolygonPoint(p[1]),
-                        _ => panic!("Invalid point found in triangulation {:?}", p),
-                    };
-                    TriangulateResultPoint { point, origin }
+                let point_iter = outer_triangles.iter().map(|p| match p[0] {
+                    0 => {
+                        found_triangle_corner(p[1].try_into().expect("Invalid corner index"), self)
+                    }
+                    1 => found_polygon_point(p[1], cut_polygon),
+                    _ => panic!("Invalid point found in triangulation {:?}", p),
                 });
                 let final_outer_triangles = static_triangles_from_points(point_iter);
 
@@ -396,11 +353,7 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                                 .into_fan_format(),
                         )
                         .expect("Error triangulate inner polygons");
-                    static_triangles_from_points(inner_triangles.iter().map(|p| {
-                        let point = point_list[*p].coordinates();
-                        let origin = TrianglePointOrigin::PolygonPoint(*p);
-                        TriangulateResultPoint { point, origin }
-                    }))
+                     static_triangles_from_points(inner_triangles.iter().map(|p| found_polygon_point(*p, cut_polygon)))
                 };
                 [final_outer_triangles, inner_triangles]
             }
@@ -408,26 +361,25 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                 Iterator::flat_map(p.iter(), |polygon| {
                     let mut remaining_polygon =
                         Iterator::map(polygon.iter().dedup(), |point| match point {
-                            TraceResultPoint::Corner(p) => TriangulateResultPoint {
-                                point: self.point(*p).coordinates(),
-                                origin: TrianglePointOrigin::TrianglePoint(*p),
-                            },
-                            TraceResultPoint::PolygonPoint(p) => TriangulateResultPoint {
-                                point: cut_polygon.get_point(*p).unwrap().coordinates(),
-                                origin: TrianglePointOrigin::PolygonPoint(*p),
-                            },
+                            TraceResultPoint::Corner(p) => found_triangle_corner(*p, self),
+                            TraceResultPoint::PolygonPoint(p) => {
+                                found_polygon_point(*p, cut_polygon)
+                            }
                             TraceResultPoint::CrossPoint {
                                 triangle_side,
                                 polygon_side,
                                 along_triangle,
                                 along_polygon: _along_polygon,
-                            } => TriangulateResultPoint {
-                                point: self.side(*triangle_side).pt_along(along_triangle.clone()),
-                                origin: TrianglePointOrigin::CrossPoint {
-                                    triangle_side: *triangle_side,
-                                    polygon_side: *polygon_side,
-                                },
-                            },
+                            } => {
+                                let d = self.side(*triangle_side).pt_along(*along_triangle);
+                                found_cross_point(
+                                    *triangle_side,
+                                    self,
+                                    *polygon_side,
+                                    cut_polygon,
+                                    d,
+                                )
+                            }
                         })
                         .collect::<Vec<_>>();
                     remaining_polygon.dedup();
@@ -439,39 +391,32 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                         )
                         .expect("Error on triangulate")
                         .iter();
-                    static_triangles_from_points(point_iter.map(|p| remaining_polygon[*p]))
+                    static_triangles_from_points(point_iter.map(|p| remaining_polygon[*p].clone()))
                 })
                 .collect::<Vec<_>>()
             }),
-            PolygonPath::None => [
-                vec![StaticTriangle2d::new(
-                    TriangulateResultPoint {
-                        point: self.p1().coordinates(),
-                        origin: TrianglePointOrigin::TrianglePoint(TriangleCornerPoint::P1),
-                    },
-                    TriangulateResultPoint {
-                        point: self.p2().coordinates(),
-                        origin: TrianglePointOrigin::TrianglePoint(TriangleCornerPoint::P2),
-                    },
-                    TriangulateResultPoint {
-                        point: self.p3().coordinates(),
-                        origin: TrianglePointOrigin::TrianglePoint(TriangleCornerPoint::P3),
-                    },
-                )],
-                vec![],
-            ],
+            PolygonPath::None => [vec![found_original_triangle(self)], vec![]],
         }
     }
 }
-fn static_triangles_from_points<P: Point2d, I: Iterator<Item = P>>(
+fn static_triangles_from_points<
+    't,
+    PointTriangle: Point2d + 't,
+    PointPolygon: Point2d + 't,
+    T: Triangle2d<PointTriangle> + 't,
+    P: Polygon2d<PointPolygon> + 't,
+    I: Iterator<Item = FoundPoint<'t, PointTriangle, PointPolygon, T, P>>,
+>(
     point_iter: I,
-) -> Vec<StaticTriangle2d<P>> {
+) -> Vec<FoundTriangle<'t, T, PointTriangle, P, PointPolygon>> {
     point_iter
         .chunks(3)
         .into_iter()
         .filter_map(|mut tr| {
             if let (Some(p1), Some(p2), Some(p3)) = (tr.next(), tr.next(), tr.next()) {
-                Some(StaticTriangle2d::new(p1, p2, p3))
+                Some(FoundTriangle::FoundTriangle(StaticTriangle2d::new(
+                    p1, p2, p3,
+                )))
             } else {
                 None
             }
