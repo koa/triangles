@@ -100,11 +100,6 @@ pub fn project<Pt: Point2d>(bbox: &BoundingBox, point: &Pt) -> Parameters {
         }
     }
 }
-#[inline]
-fn point2svg<P: Point2d>(rhs: &P) -> (f32, f32) {
-    let StaticPoint2d { x, y } = rhs.coordinates();
-    (x.0 as f32, -y.0 as f32)
-}
 
 pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
     if let BoundingBox::Box(BoundingBoxValues {

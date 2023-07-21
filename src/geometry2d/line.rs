@@ -208,7 +208,7 @@ impl<Pt: Point2d> Line2d<Pt> for (&Pt, &Pt) {
 #[cfg(test)]
 mod test {
     use crate::geometry2d::line::{HitSide, Line2d, StaticLine2d};
-    use crate::prelude::{Point2d, StaticPoint2d};
+    use crate::prelude::StaticPoint2d;
 
     #[test]
     fn test_point_line_positive() {

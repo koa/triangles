@@ -3,9 +3,7 @@ use std::marker::PhantomData;
 
 use triangulate::Vertex;
 
-use crate::geometry2d::triangle::{
-    TriangleCornerPoint, TriangleIndexOutOfBoundsError, TrianglePointIterator, TriangleSide,
-};
+use crate::geometry2d::triangle::{TriangleCornerPoint, TrianglePointIterator, TriangleSide};
 use crate::prelude::AnyPolygon::StaticTrianglePolygon;
 use crate::prelude::{
     AnyPolygon, Number, Point2d, Polygon2d, StaticPoint2d, StaticTriangle2d, Triangle2d,
@@ -103,10 +101,9 @@ impl<
     }
 
     fn get_point(&self, idx: usize) -> Option<&FoundPoint<'t, PointTriangle, PointPolygon, T, P>> {
-        match <usize as TryInto<TriangleCornerPoint>>::try_into(idx) {
-            Ok(p) => Some(self.point(p)),
-            Err(_) => None,
-        }
+        <usize as TryInto<TriangleCornerPoint>>::try_into(idx)
+            .ok()
+            .map(|p| self.point(p))
     }
 }
 
@@ -133,14 +130,14 @@ impl<
     fn point(&self, p: TriangleCornerPoint) -> &FoundPoint<'t, PointTriangle, PointPolygon, T, P> {
         match self {
             FoundTriangle::Original {
-                triangle,
+                triangle: _,
                 p1,
                 p2,
                 p3,
             } => match p {
-                TriangleCornerPoint::P1 => &p1,
-                TriangleCornerPoint::P2 => &p2,
-                TriangleCornerPoint::P3 => &p3,
+                TriangleCornerPoint::P1 => p1,
+                TriangleCornerPoint::P2 => p2,
+                TriangleCornerPoint::P3 => p3,
             },
             FoundTriangle::FoundTriangle(t) => t.point(p),
             FoundTriangle::_Phantom(_, _, _) => panic!("Never use"),

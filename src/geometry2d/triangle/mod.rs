@@ -10,7 +10,7 @@ use log::error;
 use num_traits::{One, Zero};
 use ordered_float::OrderedFloat;
 use thiserror::Error;
-use triangulate::{formats, ListFormat, Polygon, PolygonList, Vertex};
+use triangulate::{formats, ListFormat, Polygon, PolygonList};
 
 use crate::geometry2d::line::StaticLine2d;
 use crate::geometry2d::triangle::found_triangle::{
@@ -384,14 +384,16 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                         .collect::<Vec<_>>();
                     remaining_polygon.dedup();
                     let mut triangulated_indices = Vec::<usize>::new();
-                    let mut point_iter = remaining_polygon
-                        .triangulate(
-                            formats::IndexedListFormat::new(&mut triangulated_indices)
-                                .into_fan_format(),
-                        )
-                        .expect("Error on triangulate")
-                        .iter();
-                    static_triangles_from_points(point_iter.map(|p| remaining_polygon[*p].clone()))
+                    static_triangles_from_points(
+                        remaining_polygon
+                            .triangulate(
+                                formats::IndexedListFormat::new(&mut triangulated_indices)
+                                    .into_fan_format(),
+                            )
+                            .expect("Error on triangulate")
+                            .iter()
+                            .map(|p| remaining_polygon[*p].clone()),
+                    )
                 })
                 .collect::<Vec<_>>()
             }),
@@ -422,39 +424,6 @@ fn static_triangles_from_points<
             }
         })
         .collect()
-}
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct TriangulateResultPoint {
-    point: StaticPoint2d,
-    origin: TrianglePointOrigin,
-}
-
-impl Vertex for TriangulateResultPoint {
-    type Coordinate = <StaticPoint2d as Vertex>::Coordinate;
-
-    fn x(&self) -> Self::Coordinate {
-        Point2d::x(&self.point)
-    }
-
-    fn y(&self) -> Self::Coordinate {
-        Point2d::y(&self.point)
-    }
-}
-
-impl Point2d for TriangulateResultPoint {
-    fn coordinates(&self) -> StaticPoint2d {
-        self.point.coordinates()
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TrianglePointOrigin {
-    TrianglePoint(TriangleCornerPoint),
-    PolygonPoint(usize),
-    CrossPoint {
-        triangle_side: TriangleSide,
-        polygon_side: usize,
-    },
 }
 
 #[derive(Debug, Clone)]
