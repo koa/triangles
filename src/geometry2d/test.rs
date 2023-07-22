@@ -290,14 +290,32 @@ fn test_triangle_line_iterator() {
 #[test]
 fn test_side_of_line() {
     let l1 = StaticLine2d::<StaticPoint2d>::new((0.0, 0.0).into(), (2.0, 2.0).into());
-    assert_eq!(SideOfLine::Left, l1.side_of_pt(&(0.0, 1.0).into()));
-    assert_eq!(SideOfLine::Hit, l1.side_of_pt(&(1.0, 1.0).into()));
-    assert_eq!(SideOfLine::Right, l1.side_of_pt(&(1.0, 0.0).into()));
+    assert_eq!(
+        SideOfLine::Left,
+        l1.side_of_pt::<StaticPoint2d>(&(0.0, 1.0).into())
+    );
+    assert_eq!(
+        SideOfLine::Hit,
+        l1.side_of_pt::<StaticPoint2d>(&(1.0, 1.0).into())
+    );
+    assert_eq!(
+        SideOfLine::Right,
+        l1.side_of_pt::<StaticPoint2d>(&(1.0, 0.0).into())
+    );
 
     let l2 = StaticLine2d::<StaticPoint2d>::new((2.0, 2.0).into(), (0.0, 0.0).into());
-    assert_eq!(SideOfLine::Right, l2.side_of_pt(&(0.0, 1.0).into()));
-    assert_eq!(SideOfLine::Hit, l2.side_of_pt(&(1.0, 1.0).into()));
-    assert_eq!(SideOfLine::Left, l2.side_of_pt(&(1.0, 0.0).into()));
+    assert_eq!(
+        SideOfLine::Right,
+        l2.side_of_pt::<StaticPoint2d>(&(0.0, 1.0).into())
+    );
+    assert_eq!(
+        SideOfLine::Hit,
+        l2.side_of_pt::<StaticPoint2d>(&(1.0, 1.0).into())
+    );
+    assert_eq!(
+        SideOfLine::Left,
+        l2.side_of_pt::<StaticPoint2d>(&(1.0, 0.0).into())
+    );
 }
 
 #[test]

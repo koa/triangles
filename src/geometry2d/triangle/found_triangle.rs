@@ -263,10 +263,10 @@ impl<Pt2: Point2d, Pt: Point2d, T: Triangle2d<Pt>, P: Polygon2d<Pt2>> Vertex
     type Coordinate = Number;
 
     fn x(&self) -> Self::Coordinate {
-        Point2d::x(&self.coordinates())
+        self.coordinates().x
     }
 
     fn y(&self) -> Self::Coordinate {
-        Point2d::y(&self.coordinates())
+        self.coordinates().y
     }
 }

@@ -27,7 +27,7 @@ pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq + Debug {
     fn lines(&self) -> PolygonLineIterator<Self::PointIter<'_>, P> {
         PolygonLineIterator::new(self.points())
     }
-    fn point_position(&self, p: &P) -> PointPolygonRelationship {
+    fn point_position<Pt: Point2d>(&self, p: &Pt) -> PointPolygonRelationship {
         let mut right_count = 0;
         for line in self.lines() {
             match line.y_cross_side(p) {
@@ -277,48 +277,48 @@ mod test {
         ];
         assert_eq!(
             PointPolygonRelationship::Inside,
-            polygon.point_position(&(0.5, 0.5).into())
+            polygon.point_position::<StaticPoint2d>(&(0.5, 0.5).into())
         );
         assert_eq!(
             PointPolygonRelationship::Outside,
-            polygon.point_position(&(-0.5, 0.5).into())
+            polygon.point_position::<StaticPoint2d>(&(-0.5, 0.5).into())
         );
         assert_eq!(
             PointPolygonRelationship::Outside,
-            polygon.point_position(&(1.5, 0.5).into())
+            polygon.point_position::<StaticPoint2d>(&(1.5, 0.5).into())
         );
         assert_eq!(
             PointPolygonRelationship::Outside,
-            polygon.point_position(&(0.5, -0.5).into())
+            polygon.point_position::<StaticPoint2d>(&(0.5, -0.5).into())
         );
         assert_eq!(
             PointPolygonRelationship::Outside,
-            polygon.point_position(&(0.5, 1.5).into())
+            polygon.point_position::<StaticPoint2d>(&(0.5, 1.5).into())
         );
         assert_eq!(
             PointPolygonRelationship::Outside,
-            polygon.point_position(&(-0.5, 0.0).into())
+            polygon.point_position::<StaticPoint2d>(&(-0.5, 0.0).into())
         );
         assert_eq!(
             PointPolygonRelationship::Outside,
-            polygon.point_position(&(1.5, 0.0).into())
+            polygon.point_position::<StaticPoint2d>(&(1.5, 0.0).into())
         );
 
         assert_eq!(
             PointPolygonRelationship::OnEdge,
-            polygon.point_position(&(0.5, 0.0).into())
+            polygon.point_position::<StaticPoint2d>(&(0.5, 0.0).into())
         );
         assert_eq!(
             PointPolygonRelationship::OnEdge,
-            polygon.point_position(&(0.0, 0.5).into())
+            polygon.point_position::<StaticPoint2d>(&(0.0, 0.5).into())
         );
         assert_eq!(
             PointPolygonRelationship::OnEdge,
-            polygon.point_position(&(0.0, 0.0).into())
+            polygon.point_position::<StaticPoint2d>(&(0.0, 0.0).into())
         );
         assert_eq!(
             PointPolygonRelationship::OnEdge,
-            polygon.point_position(&(1.0, 1.0).into())
+            polygon.point_position::<StaticPoint2d>(&(1.0, 1.0).into())
         );
     }
 }

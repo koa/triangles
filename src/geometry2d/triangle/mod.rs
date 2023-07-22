@@ -13,6 +13,7 @@ use thiserror::Error;
 use triangulate::{formats, ListFormat, Polygon, PolygonList};
 
 use crate::geometry2d::line::StaticLine2d;
+use crate::geometry2d::polygon::cut::PointPolygonRelationship;
 use crate::geometry2d::triangle::found_triangle::{
     found_cross_point, found_original_triangle, found_polygon_point, found_triangle_corner,
     FoundPoint, FoundTriangle,
@@ -62,6 +63,15 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
             TriangleSide::S3 => self.l3(),
         }
     }
+    fn gravity_point(&self) -> StaticPoint2d {
+        let StaticPoint2d { x: x1, y: y1 } = self.p1().coordinates();
+        let StaticPoint2d { x: x2, y: y2 } = self.p2().coordinates();
+        let StaticPoint2d { x: x3, y: y3 } = self.p3().coordinates();
+        StaticPoint2d {
+            x: (x1 + x2 + x3) / 3.0,
+            y: (y1 + y2 + y3) / 3.0,
+        }
+    }
     /*
     fn points(&self) -> TrianglePointIterator<'_, Self> {
         TrianglePointIterator {
@@ -79,13 +89,10 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
 
      */
     fn area(&self) -> Number {
-        let p1 = self.p1();
-        let p2 = self.p2();
-        let p3 = self.p3();
-        (Point2d::x(p1) * (Point2d::y(p2) - Point2d::y(p3))
-            + Point2d::x(p2) * (Point2d::y(p3) - Point2d::y(p1))
-            + Point2d::x(p3) * (Point2d::y(p1) - Point2d::y(p2)))
-            / 2.0
+        let StaticPoint2d { x: x1, y: y1 } = self.p1().coordinates();
+        let StaticPoint2d { x: x2, y: y2 } = self.p2().coordinates();
+        let StaticPoint2d { x: x3, y: y3 } = self.p3().coordinates();
+        (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0
     }
     fn contains_pt(&self, p: &StaticPoint2d) -> bool {
         self.quadrant_pattern(p) == [SideOfLine::Left, SideOfLine::Left, SideOfLine::Left]
@@ -357,47 +364,63 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                 };
                 [final_outer_triangles, inner_triangles]
             }
-            PolygonPath::CutSegments(segments) => walk_shape_recursive(segments).map(|p| {
-                Iterator::flat_map(p.iter(), |polygon| {
-                    let mut remaining_polygon =
-                        Iterator::map(polygon.iter().dedup(), |point| match point {
-                            TraceResultPoint::Corner(p) => found_triangle_corner(*p, self),
-                            TraceResultPoint::PolygonPoint(p) => {
-                                found_polygon_point(*p, cut_polygon)
-                            }
-                            TraceResultPoint::CrossPoint {
-                                triangle_side,
-                                polygon_side,
-                                along_triangle,
-                                along_polygon: _along_polygon,
-                            } => {
-                                let d = self.side(*triangle_side).pt_along(*along_triangle);
-                                found_cross_point(
-                                    *triangle_side,
-                                    self,
-                                    *polygon_side,
-                                    cut_polygon,
-                                    d,
-                                )
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    remaining_polygon.dedup();
-                    let mut triangulated_indices = Vec::<usize>::new();
-                    static_triangles_from_points(
-                        remaining_polygon
-                            .triangulate(
-                                formats::IndexedListFormat::new(&mut triangulated_indices)
-                                    .into_fan_format(),
+            PolygonPath::CutSegments(segments) => {
+                let [first_edge_triangles, other_side_triangles] = walk_shape_recursive(segments)
+                    .map(|p| {
+                        Iterator::flat_map(p.iter(), |polygon| {
+                            let mut remaining_polygon =
+                                Iterator::map(polygon.iter().dedup(), |point| match point {
+                                    TraceResultPoint::Corner(p) => found_triangle_corner(*p, self),
+                                    TraceResultPoint::PolygonPoint(p) => {
+                                        found_polygon_point(*p, cut_polygon)
+                                    }
+                                    TraceResultPoint::CrossPoint {
+                                        triangle_side,
+                                        polygon_side,
+                                        along_triangle,
+                                        along_polygon: _along_polygon,
+                                    } => {
+                                        let d = self.side(*triangle_side).pt_along(*along_triangle);
+                                        found_cross_point(
+                                            *triangle_side,
+                                            self,
+                                            *polygon_side,
+                                            cut_polygon,
+                                            d,
+                                        )
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+                            remaining_polygon.dedup();
+                            let mut triangulated_indices = Vec::<usize>::new();
+                            static_triangles_from_points(
+                                remaining_polygon
+                                    .triangulate(
+                                        formats::IndexedListFormat::new(&mut triangulated_indices)
+                                            .into_fan_format(),
+                                    )
+                                    .expect("Error on triangulate")
+                                    .iter()
+                                    .map(|p| remaining_polygon[*p].clone()),
                             )
-                            .expect("Error on triangulate")
-                            .iter()
-                            .map(|p| remaining_polygon[*p].clone()),
-                    )
-                })
-                .collect::<Vec<_>>()
-            }),
-            PolygonPath::None => [vec![found_original_triangle(self)], vec![]],
+                        })
+                        .collect::<Vec<_>>()
+                    });
+                let sample_triangle = first_edge_triangles
+                    .get(0)
+                    .expect("Unexpected empty result");
+                let test_pt = sample_triangle.gravity_point();
+                match cut_polygon.point_position(&test_pt) {
+                    PointPolygonRelationship::Inside => {
+                        [other_side_triangles, first_edge_triangles]
+                    }
+                    PointPolygonRelationship::Outside => {
+                        [first_edge_triangles, other_side_triangles]
+                    }
+                    PointPolygonRelationship::OnEdge => panic!("Unexpected position"),
+                }
+            }
+            PolygonPath::None => [vec![], vec![found_original_triangle(self)]],
         }
     }
 }

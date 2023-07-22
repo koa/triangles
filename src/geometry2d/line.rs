@@ -23,11 +23,11 @@ pub trait Line2d<Pt: Point2d>: Sized + Debug {
     fn equals<L2: Line2d<Pt>>(&self, other: &L2) -> bool {
         self.p1() == other.p1() && self.p2() == other.p2()
     }
-    fn side_of_pt(&self, pt: &StaticPoint2d) -> SideOfLine {
-        let p1 = self.p1();
-        let p2 = self.p2();
-        let r = (pt.x() - Point2d::x(p2)) * (Point2d::y(p1) - Point2d::y(p2))
-            - (Point2d::x(p1) - Point2d::x(p2)) * (pt.y() - Point2d::y(p2));
+    fn side_of_pt<P: Point2d>(&self, pt: &P) -> SideOfLine {
+        let StaticPoint2d { x: p1x, y: p1y } = self.p1().coordinates();
+        let StaticPoint2d { x: p2x, y: p2y } = self.p2().coordinates();
+        let StaticPoint2d { x: ptx, y: pty } = pt.coordinates();
+        let r = (ptx - p2x) * (p1y - p2y) - (p1x - p2x) * (pty - p2y);
         match r.cmp(&OrderedFloat::zero()) {
             Ordering::Less => SideOfLine::Right,
             Ordering::Equal => SideOfLine::Hit,
