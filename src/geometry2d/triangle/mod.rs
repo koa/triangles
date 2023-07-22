@@ -73,22 +73,7 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
             y: (y1 + y2 + y3) / 3.0,
         }
     }
-    /*
-    fn points(&self) -> TrianglePointIterator<'_, Self> {
-        TrianglePointIterator {
-            triangle: self,
-            state: Default::default(),
-        }
-    }*/
-    /*
-    fn lines(&self) -> TriangleLineIterator<'_, Self> {
-        TriangleLineIterator {
-            triangle: self,
-            state: Default::default(),
-        }
-    }
 
-     */
     fn area(&self) -> Number {
         let StaticPoint2d { x: x1, y: y1 } = self.p1().coordinates();
         let StaticPoint2d { x: x2, y: y2 } = self.p2().coordinates();
@@ -138,7 +123,7 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
         edges
     }
 
-    fn cut<Poly: Polygon2d<Pt> + Debug, Pt: Point2d>(&self, cut_polygon: &Poly) -> PolygonPath {
+    fn cut<Poly: Polygon2d<Pt>, Pt: Point2d>(&self, cut_polygon: &Poly) -> PolygonPath {
         assert!(self.area() > OrderedFloat::zero());
         let mut poly_point_iter = cut_polygon.points().enumerate();
         if let Some((_, first_poly_pt)) = poly_point_iter.next() {
@@ -310,14 +295,11 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
             PolygonPath::None
         }
     }
-    fn triangulate_cut_polygons<'a, Poly: Polygon2d<Pt> + 'a, Pt: Point2d + 'a>(
+    fn triangulate_cut_polygons<'a, Poly: Polygon2d<Pt> + 'a, Pt: Point2d>(
         &'a self,
         cut_polygon: &'a Poly,
         path: &PolygonPath,
-    ) -> [Vec<FoundTriangle<'a, Self, P, Poly, Pt>>; 2]
-    where
-        P: 'a,
-    {
+    ) -> [Vec<FoundTriangle<'a, Self, P, Poly, Pt>>; 2] {
         match path {
             PolygonPath::Enclosed => {
                 let outer_polygon: Vec<PointOrPoint<P, Pt>> =
@@ -414,8 +396,7 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                 let sample_triangle = first_edge_triangles
                     .get(0)
                     .expect("Unexpected empty result");
-                let test_pt = sample_triangle.gravity_point();
-                match cut_polygon.point_position(&test_pt) {
+                match cut_polygon.point_position(&sample_triangle.gravity_point()) {
                     PointPolygonRelationship::Inside => {
                         [other_side_triangles, first_edge_triangles]
                     }
@@ -425,14 +406,24 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
                     PointPolygonRelationship::OnEdge => panic!("Unexpected position"),
                 }
             }
-            PolygonPath::None => [vec![], vec![found_original_triangle(self)]],
+            PolygonPath::None => match cut_polygon.point_position(&self.gravity_point()) {
+                PointPolygonRelationship::Inside => [vec![], vec![found_original_triangle(self)]],
+                PointPolygonRelationship::Outside => [vec![found_original_triangle(self)], vec![]],
+                PointPolygonRelationship::OnEdge => panic!("Unexpected position"),
+            },
         }
+    }
+    fn cut_to_triangles<'a, Poly: Polygon2d<Pt>, Pt: Point2d>(
+        &'a self,
+        cut_polygon: &'a Poly,
+    ) -> [Vec<FoundTriangle<'a, Self, P, Poly, Pt>>; 2] {
+        self.triangulate_cut_polygons(cut_polygon, &self.cut(cut_polygon))
     }
 }
 fn static_triangles_from_points<
     't,
-    PointTriangle: Point2d + 't,
-    PointPolygon: Point2d + 't,
+    PointTriangle: Point2d,
+    PointPolygon: Point2d,
     T: Triangle2d<PointTriangle> + 't,
     P: Polygon2d<PointPolygon> + 't,
     I: Iterator<Item = FoundPoint<'t, PointTriangle, PointPolygon, T, P>>,
