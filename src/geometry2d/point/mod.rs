@@ -25,3 +25,29 @@ pub trait Point2d: Sized + Debug + PartialEq + Clone + Vertex {
         x_dist * x_dist + y_dist * y_dist
     }
 }
+#[derive(Debug, PartialEq, Clone)]
+pub enum PointOrPoint<P1: Point2d, P2: Point2d> {
+    P1(P1),
+    P2(P2),
+}
+
+impl<P1: Point2d, P2: Point2d> Vertex for PointOrPoint<P1, P2> {
+    type Coordinate = Number;
+
+    fn x(&self) -> Self::Coordinate {
+        self.coordinates().x
+    }
+
+    fn y(&self) -> Self::Coordinate {
+        self.coordinates().y
+    }
+}
+
+impl<P1: Point2d, P2: Point2d> Point2d for PointOrPoint<P1, P2> {
+    fn coordinates(&self) -> StaticPoint2d {
+        match self {
+            PointOrPoint::P1(p) => p.coordinates(),
+            PointOrPoint::P2(p) => p.coordinates(),
+        }
+    }
+}

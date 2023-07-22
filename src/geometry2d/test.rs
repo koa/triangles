@@ -357,7 +357,7 @@ fn test_triangle_error() {
 
 #[test]
 fn test_polygon_intersection() {
-    let big_triangle = StaticTriangle2d::new(
+    let big_triangle = StaticTriangle2d::<StaticPoint2d>::new(
         (-100.0, -50.0).into(),
         (100.0, -50.0).into(),
         (0.0, 50.0).into(),

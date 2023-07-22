@@ -13,6 +13,7 @@ use thiserror::Error;
 use triangulate::{formats, ListFormat, Polygon, PolygonList};
 
 use crate::geometry2d::line::StaticLine2d;
+use crate::geometry2d::point::PointOrPoint;
 use crate::geometry2d::polygon::cut::PointPolygonRelationship;
 use crate::geometry2d::triangle::found_triangle::{
     found_cross_point, found_original_triangle, found_polygon_point, found_triangle_corner,
@@ -309,18 +310,22 @@ pub trait Triangle2d<P: Point2d>: Sized + Polygon2d<P> + PartialEq {
             PolygonPath::None
         }
     }
-    fn triangulate_cut_polygons<'a, Poly: Polygon2d<P> + Debug + 'a>(
+    fn triangulate_cut_polygons<'a, Poly: Polygon2d<Pt> + 'a, Pt: Point2d + 'a>(
         &'a self,
         cut_polygon: &'a Poly,
         path: &PolygonPath,
-    ) -> [Vec<FoundTriangle<'a, Self, P, Poly, P>>; 2]
+    ) -> [Vec<FoundTriangle<'a, Self, P, Poly, Pt>>; 2]
     where
         P: 'a,
     {
         match path {
             PolygonPath::Enclosed => {
-                let outer_polygon: Vec<P> = self.points().cloned().collect();
-                let inner_polygon: Vec<P> = cut_polygon.points().cloned().collect();
+                let outer_polygon: Vec<PointOrPoint<P, Pt>> =
+                    self.points().map(|p| PointOrPoint::P1(p.clone())).collect();
+                let inner_polygon: Vec<PointOrPoint<P, Pt>> = cut_polygon
+                    .points()
+                    .map(|p| PointOrPoint::P2(p.clone()))
+                    .collect();
                 let outer_shape = vec![outer_polygon, inner_polygon];
                 let mut outer_triangulated_indices = Vec::<[usize; 2]>::new();
                 let outer_triangles = outer_shape
