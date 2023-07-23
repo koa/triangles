@@ -5,6 +5,7 @@ use crate::geometry3d::point::Point3d;
 use crate::geometry3d::Vector3d;
 use crate::primitives::Number;
 
+pub mod referenced_line;
 pub mod static_line;
 
 pub trait Line3d<P: Point3d> {

@@ -1,6 +1,7 @@
 mod generic_triangle;
 mod geometry2d;
 mod geometry3d;
+mod io;
 mod primitives;
 pub mod prelude {
     pub use crate::{

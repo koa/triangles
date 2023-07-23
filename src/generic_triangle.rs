@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 use thiserror::Error;
 
 /// triangle properties independent of dimension count (corners and edges)
@@ -83,7 +83,18 @@ pub enum TriangleSide {
     S3 = 2,
 }
 
+impl Display for TriangleSide {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TriangleSide::S1 => f.write_str("s1"),
+            TriangleSide::S2 => f.write_str("s2"),
+            TriangleSide::S3 => f.write_str("s3"),
+        }
+    }
+}
+
 impl TriangleSide {
+    #[inline]
     pub fn start_corner(&self) -> TriangleCornerPoint {
         match self {
             TriangleSide::S1 => TriangleCornerPoint::P1,
@@ -91,6 +102,7 @@ impl TriangleSide {
             TriangleSide::S3 => TriangleCornerPoint::P3,
         }
     }
+    #[inline]
     pub fn end_corner(&self) -> TriangleCornerPoint {
         match self {
             TriangleSide::S1 => TriangleCornerPoint::P2,

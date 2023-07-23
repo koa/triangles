@@ -1,11 +1,9 @@
 use std::fmt::Debug;
 
 use ordered_float::OrderedFloat;
-use triangulate::Vertex;
-use vek::{Quaternion, Vec3};
+use stl_io::Vertex;
 
 use crate::geometry3d::Vector3d;
-use crate::prelude::{Point2d, StaticPoint2d};
 use crate::primitives::Number;
 
 pub trait Point3d: Sized + Debug + PartialEq + Clone {
@@ -27,5 +25,11 @@ where
 impl Point3d for Vector3d {
     fn coordinates(&self) -> Vector3d {
         *self
+    }
+}
+
+impl Point3d for Vertex {
+    fn coordinates(&self) -> Vector3d {
+        point_3d(self[0] as f64, self[1] as f64, self[2] as f64)
     }
 }
