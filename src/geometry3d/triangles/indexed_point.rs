@@ -1,14 +1,22 @@
-use std::ptr::eq;
+use std::hash::{Hash, Hasher};
+use std::ptr::{eq, hash};
 
 use crate::geometry3d::point::Point3d;
 use crate::geometry3d::triangles::IndexedTriangleList;
 use crate::geometry3d::Vector3d;
 
-#[derive(Copy, Clone, Debug, Hash)]
+#[derive(Copy, Clone, Debug)]
 pub struct IndexedPoint<'a, P: Point3d> {
     list: &'a IndexedTriangleList<P>,
     idx: usize,
     p: &'a P,
+}
+
+impl<'a, P: Point3d> Hash for IndexedPoint<'a, P> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        hash(self.list, state);
+        state.write_usize(self.idx);
+    }
 }
 
 impl<'a, P: Point3d> IndexedPoint<'a, P> {

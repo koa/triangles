@@ -1,4 +1,6 @@
-use std::ptr::eq;
+use std::hash::{Hash, Hasher};
+use std::ptr;
+use std::ptr::{eq, hash};
 
 use stl_io::{IndexedMesh, IndexedTriangle, Vector, Vertex};
 
@@ -106,13 +108,20 @@ impl IndexedTriangleEntry {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ReferencedTriangle<'a, P: Point3d> {
     list: &'a IndexedTriangleList<P>,
     idx: usize,
     p1: IndexedPoint<'a, P>,
     p2: IndexedPoint<'a, P>,
     p3: IndexedPoint<'a, P>,
+}
+
+impl<'a, P: Point3d> Hash for ReferencedTriangle<'a, P> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        ptr::hash(self.list, state);
+        state.write_usize(self.idx);
+    }
 }
 
 impl<'a, P: Point3d> PartialEq for ReferencedTriangle<'a, P> {
@@ -192,6 +201,8 @@ impl<P: Point3d> From<IndexedTriangleList<P>> for IndexedMesh {
 }
 #[cfg(test)]
 mod test {
+    use itertools::Itertools;
+    use std::collections::BTreeMap;
     use std::fs::OpenOptions;
 
     use stl_io::IndexedMesh;
@@ -207,7 +218,22 @@ mod test {
             .unwrap();
         let stl = stl_io::read_stl(&mut file).unwrap();
         let triangle_list: IndexedTriangleList<_> = stl.clone().into();
-        TriangleTopolgy::new(&triangle_list).expect("Error on topology");
+        let topolgy = TriangleTopolgy::new(&triangle_list).expect("Error on topology");
+        println!("Triangle count: {}", triangle_list.triangles().len());
+        println!("Plane count: {}", topolgy.triangles_of_plane().len());
+        let stats = topolgy
+            .triangles_of_plane()
+            .values()
+            .map(|tr| tr.len())
+            .counts();
+        for (triangle_count, plane_count) in stats {
+            println!("{plane_count} Planes with {triangle_count} Triangles");
+        }
+        for (plane, triangles) in topolgy.triangles_of_plane() {
+            if triangles.len() > 3 {
+                println!("Plane: {:?}: {}", plane, triangles.len())
+            }
+        }
 
         let new_stl_data: IndexedMesh = triangle_list.into();
         // compare vertices

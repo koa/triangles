@@ -1,6 +1,7 @@
 use crate::geometry3d::line::Line3d;
 use crate::geometry3d::point::Point3d;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ReferencedLine<'a, P: Point3d> {
     p1: &'a P,
     p2: &'a P,

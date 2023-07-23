@@ -4,7 +4,7 @@ use num_traits::Zero;
 use thiserror::Error;
 use vek::Vec3;
 
-use crate::geometry3d::line::static_line::StaticLine;
+use crate::geometry3d::line::static_line::StaticLine3d;
 use crate::geometry3d::line::Line3d;
 use crate::geometry3d::point::Point3d;
 use crate::geometry3d::Vector3d;
@@ -67,7 +67,7 @@ impl Plane3d {
                 &linedir_in_plane,
             );
             let point = point_in_plane + linedir_in_plane * pos_in_line;
-            PlaneCutRelationship::Line(StaticLine::new(point, direction))
+            PlaneCutRelationship::Line(StaticLine3d::new(point, direction))
         }
     }
     #[inline]
@@ -96,10 +96,10 @@ fn intersect_line(
 pub enum PlaneCutRelationship {
     Parallel,
     Same,
-    Line(StaticLine),
+    Line(StaticLine3d),
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Debug, Eq, PartialEq, Copy, Clone)]
 pub struct InvalidPlane {}
 
 impl Display for InvalidPlane {
@@ -112,7 +112,7 @@ impl Display for InvalidPlane {
 mod test {
     use vek::Quaternion;
 
-    use crate::geometry3d::line::static_line::StaticLine;
+    use crate::geometry3d::line::static_line::StaticLine3d;
     use crate::geometry3d::plane::{InvalidPlane, Plane3d, PlaneCutRelationship};
     use crate::geometry3d::point::point_3d;
     use crate::primitives::Number;
@@ -173,7 +173,7 @@ mod test {
         )
         .unwrap();
         assert_eq!(
-            PlaneCutRelationship::Line(StaticLine::new(
+            PlaneCutRelationship::Line(StaticLine3d::new(
                 point_3d(1.0, 1.0, 0.0),
                 point_3d(0.0, 0.0, 1.0)
             )),
