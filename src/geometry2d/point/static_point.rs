@@ -15,6 +15,15 @@ pub struct StaticPoint2d {
     pub y: Number,
 }
 
+impl Into<Vector2d> for StaticPoint2d {
+    fn into(self) -> Vector2d {
+        Vector2d {
+            x: self.x,
+            y: self.y,
+        }
+    }
+}
+
 impl Point2d for StaticPoint2d {
     fn coordinates(&self) -> StaticPoint2d {
         *self
@@ -26,8 +35,8 @@ impl Add<Vector2d> for StaticPoint2d {
 
     fn add(self, rhs: Vector2d) -> Self::Output {
         StaticPoint2d {
-            x: self.x + rhs.x(),
-            y: self.y + rhs.y(),
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
         }
     }
 }

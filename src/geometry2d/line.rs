@@ -6,11 +6,9 @@ use std::{
 use num_traits::Zero;
 use ordered_float::OrderedFloat;
 
+use crate::geometry2d::vector::Vector2d;
 use crate::{
-    geometry2d::{
-        point::{Point2d, StaticPoint2d},
-        vector::Vector2d,
-    },
+    geometry2d::point::{Point2d, StaticPoint2d},
     primitives::Number,
 };
 
@@ -44,11 +42,11 @@ pub trait Line2d<Pt: Point2d>: Sized + Debug {
         let p2 = other.p1().coordinates();
         let v1 = self.direction();
         let v2 = other.direction();
-        let div = (v1.x()) * (v2.y()) - (v1.y()) * (v2.x());
+        let div = (v1.x) * (v2.y) - (v1.y) * (v2.x);
         if div != 0.0 {
             let p_diff = p1 - p2;
-            let ua = (v2.x() * p_diff.y() - v2.y() * p_diff.x()) / div;
-            let ub = (v1.x() * p_diff.y() - v1.y() * p_diff.x()) / div;
+            let ua = (v2.x * p_diff.y - v2.y * p_diff.x) / div;
+            let ub = (v1.x * p_diff.y - v1.y * p_diff.x) / div;
             if (0.0..=1.0).contains(&ua.into()) && (0.0..=1.0).contains(&ub.into()) {
                 LineIntersection::Point {
                     my_pos: ua,

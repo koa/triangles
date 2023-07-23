@@ -1,4 +1,4 @@
-use crate::geometry2d::triangle::TriangleSide;
+use crate::generic_triangle::TriangleSide;
 use crate::primitives::Number;
 
 #[derive(Debug)]

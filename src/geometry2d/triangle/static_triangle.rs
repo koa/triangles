@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 
 use triangulate::Polygon;
 
-use crate::geometry2d::triangle::{TriangleCornerIterator, TriangleCornerPoint};
+use crate::generic_triangle::{TriangleCornerIterator, TriangleCornerPoint};
 use crate::geometry2d::{
     point::StaticPoint2d,
     polygon::{AnyPolygon, Polygon2d},
