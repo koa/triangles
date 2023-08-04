@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::ptr;
-use std::ptr::{eq, hash};
+use std::ptr::eq;
 
 use stl_io::{IndexedMesh, IndexedTriangle, Vector, Vertex};
 
@@ -50,7 +50,7 @@ impl<P: Point3d> IndexedTriangleList<P> {
             triangles: vec![],
         }
     }
-    fn triangles(&self) -> Vec<ReferencedTriangle<P>> {
+    pub fn triangles(&self) -> Vec<ReferencedTriangle<P>> {
         self.triangles
             .iter()
             .enumerate()
@@ -70,10 +70,25 @@ impl<P: Point3d> IndexedTriangleList<P> {
             p3,
         }
     }
-    fn get_triangle(&self, idx: usize) -> Option<ReferencedTriangle<P>> {
+    pub fn get_triangle(&self, idx: usize) -> Option<ReferencedTriangle<P>> {
         self.triangles
             .get(idx)
             .map(|entry| self.create_triangle(idx, entry))
+    }
+
+    pub fn points(&self) -> &[P] {
+        &self.points
+    }
+
+    pub fn transform_points<T, Pt>(self, transform: T) -> IndexedTriangleList<Pt>
+    where
+        T: FnMut(&P) -> Pt,
+        Pt: Point3d,
+    {
+        IndexedTriangleList {
+            points: self.points.into_iter().map(transform).collect(),
+            triangles: self.triangles,
+        }
     }
 }
 
@@ -201,13 +216,12 @@ impl<P: Point3d> From<IndexedTriangleList<P>> for IndexedMesh {
 }
 #[cfg(test)]
 mod test {
-    use itertools::Itertools;
-    use std::collections::BTreeMap;
     use std::fs::OpenOptions;
 
+    use itertools::Itertools;
     use stl_io::IndexedMesh;
 
-    use crate::geometry3d::triangles::topology::TriangleTopolgy;
+    use crate::geometry3d::triangles::topology::TriangleTopology;
     use crate::geometry3d::triangles::IndexedTriangleList;
 
     #[test]
@@ -218,7 +232,7 @@ mod test {
             .unwrap();
         let stl = stl_io::read_stl(&mut file).unwrap();
         let triangle_list: IndexedTriangleList<_> = stl.clone().into();
-        let topolgy = TriangleTopolgy::new(&triangle_list).expect("Error on topology");
+        let topolgy = TriangleTopology::new(&triangle_list).expect("Error on topology");
         println!("Triangle count: {}", triangle_list.triangles().len());
         println!("Plane count: {}", topolgy.triangles_of_plane().len());
         let stats = topolgy

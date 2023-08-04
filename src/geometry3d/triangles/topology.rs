@@ -10,13 +10,13 @@ use crate::geometry3d::triangle::Triangle3d;
 use crate::geometry3d::triangles::indexed_point::IndexedPoint;
 use crate::geometry3d::triangles::{IndexedTriangleList, ReferencedTriangle};
 
-pub struct TriangleTopolgy<'a, P: Point3d> {
-    triangles: &'a IndexedTriangleList<P>,
+pub struct TriangleTopology<'a, P: Point3d> {
+    //triangles: &'a IndexedTriangleList<P>,
     edge_neighbors: HashMap<PointLine3d<IndexedPoint<'a, P>>, [ReferencedTriangle<'a, P>; 2]>,
     triangles_of_plane: HashMap<Plane3d, Vec<ReferencedTriangle<'a, P>>>,
 }
 
-impl<'a, P: Point3d> TriangleTopolgy<'a, P> {
+impl<'a, P: Point3d> TriangleTopology<'a, P> {
     pub fn new(triangles: &'a IndexedTriangleList<P>) -> Result<Self, TopologyError<'a, P>> {
         let mut collecting_neighbors = HashMap::<_, LineNeighbors<'a, P>>::new();
         let mut triangles_of_plane = HashMap::<_, Vec<_>>::new();
@@ -58,7 +58,7 @@ impl<'a, P: Point3d> TriangleTopolgy<'a, P> {
             edge_neighbors.insert(edge, result.triangles_tuple()?);
         }
         Ok(Self {
-            triangles,
+            //triangles,
             edge_neighbors,
             triangles_of_plane,
         })

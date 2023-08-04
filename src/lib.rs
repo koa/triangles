@@ -14,6 +14,12 @@ pub mod prelude {
             polygon::{cut::PolygonPath, AnyPolygon, Polygon2d},
             triangle::{static_triangle::StaticTriangle2d, Triangle2d},
         },
+        geometry3d::{
+            point::{point_3d, Point3d},
+            triangle::Triangle3d,
+            triangles::{topology::TriangleTopology, IndexedTriangleList},
+            Vector3d,
+        },
         primitives::{Float, Number},
     };
 }
