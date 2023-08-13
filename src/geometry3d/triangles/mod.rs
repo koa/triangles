@@ -86,7 +86,7 @@ impl<P: Point3d> IndexedTriangleList<P> {
         Pt: Point3d,
     {
         IndexedTriangleList {
-            points: self.points.into_iter().map(transform).collect(),
+            points: self.points.iter().map(transform).collect(),
             triangles: self.triangles,
         }
     }

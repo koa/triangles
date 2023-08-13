@@ -4,9 +4,10 @@ use std::slice::Iter;
 
 use crate::geometry2d::line::{HitSide, Line2d, ReferenceLine2d};
 use crate::geometry2d::polygon::cut::{PointPolygonRelationship, PointRange, PointRangeIterator};
+use crate::geometry2d::polygon::AnyPolygonPointIter::StaticTrianglePolygon;
 use crate::geometry2d::triangle::static_triangle::StaticTriangle2d;
 use crate::geometry2d::triangle::TrianglePointIterator;
-use crate::prelude::{BoundingBox, Point2d};
+use crate::prelude::{BoundingBox2d, Point2d, Triangle2d};
 
 pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq + Debug {
     type PointIter<'a>: Iterator<Item = &'a P> + Clone
@@ -15,7 +16,6 @@ pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq + Debug {
         P: 'a;
     fn points(&self) -> Self::PointIter<'_>;
     fn point_count(&self) -> usize;
-    fn to_any_polygon(self) -> AnyPolygon<P>;
     fn points_of_range(&self, range: &PointRange) -> PolygonRangeIterator<Self, P> {
         PolygonRangeIterator {
             phantom: Default::default(),
@@ -55,8 +55,8 @@ pub trait Polygon2d<P: Point2d>: Sized + Clone + PartialEq + Debug {
         }
     }
 
-    fn bbox(&self) -> BoundingBox {
-        let mut ret: BoundingBox = Default::default();
+    fn bbox(&self) -> BoundingBox2d {
+        let mut ret: BoundingBox2d = Default::default();
         for p in self.points() {
             ret += p.coordinates();
         }
@@ -148,10 +148,6 @@ impl<Pt: Point2d> Polygon2d<Pt> for Vec<Pt> {
         self.len()
     }
 
-    fn to_any_polygon(self) -> AnyPolygon<Pt> {
-        AnyPolygon::VecPointPolygon(self)
-    }
-
     fn get_point(&self, idx: usize) -> Option<&Pt> {
         self.get(idx)
     }
@@ -162,6 +158,24 @@ pub enum AnyPolygon<P: Point2d> {
     VecPointPolygon(Vec<P>),
     StaticTrianglePolygon(StaticTriangle2d<P>),
 }
+
+impl<P: Point2d> From<StaticTriangle2d<P>> for AnyPolygon<P> {
+    fn from(value: StaticTriangle2d<P>) -> Self {
+        AnyPolygon::StaticTrianglePolygon(value)
+    }
+}
+
+impl<P: Point2d> AnyPolygon<P> {
+    pub fn points(&self) -> AnyPolygonPointIter<'_, P> {
+        match self {
+            AnyPolygon::VecPointPolygon(p) => AnyPolygonPointIter::VecPointPolygon(p.points()),
+            AnyPolygon::StaticTrianglePolygon(p) => {
+                AnyPolygonPointIter::StaticTrianglePolygon(p.points())
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum AnyPolygonPointIter<'a, Pt: Point2d> {
     VecPointPolygon(Iter<'a, Pt>),
@@ -175,37 +189,6 @@ impl<'a, Pt: Point2d> Iterator for AnyPolygonPointIter<'a, Pt> {
         match self {
             AnyPolygonPointIter::VecPointPolygon(i) => i.next(),
             AnyPolygonPointIter::StaticTrianglePolygon(i) => i.next(),
-        }
-    }
-}
-
-impl<Pt: Point2d> Polygon2d<Pt> for AnyPolygon<Pt> {
-    type PointIter<'a>    = AnyPolygonPointIter<'a, Pt> where      Self: 'a,;
-
-    fn points(&self) -> Self::PointIter<'_> {
-        match self {
-            AnyPolygon::VecPointPolygon(p) => AnyPolygonPointIter::VecPointPolygon(p.points()),
-            AnyPolygon::StaticTrianglePolygon(p) => {
-                AnyPolygonPointIter::StaticTrianglePolygon(p.points())
-            }
-        }
-    }
-
-    fn point_count(&self) -> usize {
-        match self {
-            AnyPolygon::VecPointPolygon(p) => p.point_count(),
-            AnyPolygon::StaticTrianglePolygon(p) => p.point_count(),
-        }
-    }
-
-    fn to_any_polygon(self) -> AnyPolygon<Pt> {
-        self
-    }
-
-    fn get_point(&self, idx: usize) -> Option<&Pt> {
-        match self {
-            AnyPolygon::VecPointPolygon(p) => p.get_point(idx),
-            AnyPolygon::StaticTrianglePolygon(p) => p.get_point(idx),
         }
     }
 }

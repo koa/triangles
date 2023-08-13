@@ -10,9 +10,17 @@ pub struct StaticLine3d {
     dir: Vec3<Number>,
 }
 
+impl StaticLine3d {}
+
 impl StaticLine3d {
     pub fn new(p: Vec3<Number>, dir: Vec3<Number>) -> Self {
         Self { p, dir }
+    }
+    pub fn from_points(p1: Vec3<Number>, p2: Vec3<Number>) -> Self {
+        Self {
+            p: p1,
+            dir: p2 - p1,
+        }
     }
 }
 

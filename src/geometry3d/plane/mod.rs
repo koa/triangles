@@ -33,7 +33,7 @@ impl Plane3d {
         }
 
         let normal = normal.normalized();
-        let distance = -(normal.dot(v1));
+        let distance = (normal.dot(v1));
         Ok(Self { normal, distance })
     }
     #[inline]
@@ -74,7 +74,7 @@ impl Plane3d {
     fn point_in_plane(&self) -> Vec3<Number> {
         self.normal * self.distance
     }
-    fn is_in_front<P: Point3d>(&self, p: &P) -> bool {
+    pub fn is_in_front<P: Point3d>(&self, p: &P) -> bool {
         self.point_distance(p) > Number::zero()
     }
     pub fn point_distance<P: Point3d>(&self, p: &P) -> Number {
@@ -110,11 +110,15 @@ impl Display for InvalidPlane {
 
 #[cfg(test)]
 mod test {
+    use approx::assert_relative_eq;
+    use vek::approx::relative_eq;
     use vek::Quaternion;
 
     use crate::geometry3d::line::static_line::StaticLine3d;
     use crate::geometry3d::plane::{InvalidPlane, Plane3d, PlaneCutRelationship};
     use crate::geometry3d::point::point_3d;
+    use crate::prelude::AnyPolygon::StaticTrianglePolygon;
+    use crate::prelude::Line3d;
     use crate::primitives::Number;
 
     #[test]
@@ -147,7 +151,7 @@ mod test {
         println!("Plane: {p2:?}, normal: {}", p2.normal());
         assert_eq!(p1, p2);
         let d = p1.point_distance(&point_3d(0.0, 0.0, 0.0));
-        assert_eq!(d, -1.0);
+        assert_eq!(d, 1.0);
     }
     #[test]
     fn test_invalid_plane() {
@@ -174,10 +178,26 @@ mod test {
         .unwrap();
         assert_eq!(
             PlaneCutRelationship::Line(StaticLine3d::new(
-                point_3d(1.0, 1.0, 0.0),
+                point_3d(-1.0, -1.0, 0.0),
                 point_3d(0.0, 0.0, 1.0)
             )),
             p1.relationship(&p2)
         );
+    }
+    #[test]
+    fn test_plane_line_intersect() {
+        let p = Plane3d::from_points(
+            point_3d(1.0, 4.0, 0.0),
+            point_3d(3.0, 2.0, 3.0),
+            point_3d(1.0, 4.0, 3.0),
+        )
+        .unwrap();
+        let l = StaticLine3d::from_points(point_3d(1.0, 2.0, 1.0), point_3d(3.0, 4.0, 3.0));
+        let i = p.intersect_line_at(&l);
+        assert_relative_eq!(i.0, 0.5);
+        let point = l.point_at(i);
+        assert_relative_eq!(point.x.0, 2.0);
+        assert_relative_eq!(point.y.0, 3.0);
+        assert_relative_eq!(point.z.0, 2.0);
     }
 }

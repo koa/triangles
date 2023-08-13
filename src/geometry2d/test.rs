@@ -10,7 +10,7 @@ use crate::geometry2d::point::StaticPoint2d;
 use crate::geometry2d::polygon::cut::PolygonPath;
 use crate::geometry2d::polygon::{AnyPolygon, Polygon2d};
 use crate::geometry2d::triangle::Triangle2d;
-use crate::prelude::{BoundingBox, BoundingBoxValues, Point2d, StaticTriangle2d};
+use crate::prelude::{BoundingBox2d, BoundingBox2dValues, Point2d, StaticTriangle2d};
 
 struct Figure<Pt: Point2d> {
     path: PathWay<Pt>,
@@ -24,7 +24,7 @@ enum PathWay<Pt: Point2d> {
 }
 
 impl<Pt: Point2d> PathWay<Pt> {
-    fn expand_bbox(&self, bbox: &mut BoundingBox) {
+    fn expand_bbox(&self, bbox: &mut BoundingBox2d) {
         match self {
             PathWay::Polygon(p) => {
                 for p in p.points() {
@@ -53,14 +53,14 @@ where
  */
 
 impl<Pt: Point2d> Figure<Pt> {
-    fn from_polygon<P: Polygon2d<Pt>, F: ToString, S: ToString, W: Into<u8>>(
+    fn from_polygon<P: Into<AnyPolygon<Pt>>, F: ToString, S: ToString, W: Into<u8>>(
         polygon: P,
         fill: F,
         stroke: S,
         width: W,
     ) -> Self {
         Self {
-            path: PathWay::Polygon(polygon.to_any_polygon()),
+            path: PathWay::Polygon(polygon.into()),
             fill: Some(fill.to_string()),
             stroke: Some(stroke.to_string()),
             width: Some(width.into()),
@@ -91,18 +91,18 @@ impl<Pt: Point2d> Default for DisplayList<Pt> {
     }
 }
 
-pub fn project<Pt: Point2d>(bbox: &BoundingBox, point: &Pt) -> Parameters {
+pub fn project<Pt: Point2d>(bbox: &BoundingBox2d, point: &Pt) -> Parameters {
     let StaticPoint2d { x, y } = point.coordinates();
     match bbox {
-        BoundingBox::Empty => Parameters::from((x.0 as f32, y.0 as f32)),
-        BoundingBox::Box(BoundingBoxValues { min_x, min_y, .. }) => {
+        BoundingBox2d::Empty => Parameters::from((x.0 as f32, y.0 as f32)),
+        BoundingBox2d::Box(BoundingBox2dValues { min_x, min_y, .. }) => {
             Parameters::from((x.0 as f32 - min_x.0 as f32, y.0 as f32 - min_y.0 as f32))
         }
     }
 }
 
-pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
-    if let BoundingBox::Box(BoundingBoxValues {
+pub fn plot_coordinates(bbox: &BoundingBox2d, svg: SVG) -> SVG {
+    if let BoundingBox2d::Box(BoundingBox2dValues {
         min_x,
         min_y,
         max_x,
@@ -139,10 +139,10 @@ pub fn plot_coordinates(bbox: &BoundingBox, svg: SVG) -> SVG {
         svg
     }
 }
-fn bbox2value(bbox: &BoundingBox) -> Value {
+fn bbox2value(bbox: &BoundingBox2d) -> Value {
     match bbox {
-        BoundingBox::Empty => "".into(),
-        BoundingBox::Box(BoundingBoxValues {
+        BoundingBox2d::Empty => "".into(),
+        BoundingBox2d::Box(BoundingBox2dValues {
             min_x,
             min_y,
             max_x,
@@ -160,7 +160,7 @@ impl<Pt: Point2d> DisplayList<Pt> {
         self.entries.push(figure);
     }
     fn plot<T: AsRef<std::path::Path>>(&self, path: T) -> std::io::Result<()> {
-        let mut bbox: BoundingBox = Default::default();
+        let mut bbox: BoundingBox2d = Default::default();
         for f in &self.entries {
             f.path.expand_bbox(&mut bbox);
         }
@@ -195,7 +195,7 @@ impl<Pt: Point2d> DisplayList<Pt> {
         svg::save(path, &svg)
     }
 }
-fn plot<P: Polygon2d<Pt>, Pt: Point2d>(polygon: &P, bbox: &BoundingBox) -> Option<Data> {
+fn plot<Pt: Point2d>(polygon: &AnyPolygon<Pt>, bbox: &BoundingBox2d) -> Option<Data> {
     let mut iter = polygon.points();
     if let Some(start_pt) = iter.next() {
         let mut data = Data::new().move_to(project(bbox, start_pt));
@@ -208,9 +208,9 @@ fn plot<P: Polygon2d<Pt>, Pt: Point2d>(polygon: &P, bbox: &BoundingBox) -> Optio
     }
 }
 
-fn create_path<P: Polygon2d<Pt>, Pt: Point2d>(
-    bbox: &BoundingBox,
-    polygon: &P,
+fn create_path<Pt: Point2d>(
+    bbox: &BoundingBox2d,
+    polygon: &AnyPolygon<Pt>,
     fill: &str,
     color: &str,
     width: u8,
@@ -372,11 +372,14 @@ fn test_polygon_intersection() {
     let cut_polygon = &small_triangle;
     let path = big_triangle.cut(cut_polygon);
     println!("Path: {path:?}");
-    let mut list = DisplayList::<StaticPoint2d>::default();
+    let mut list: DisplayList<StaticPoint2d> = Default::default();
     match &path {
-        PolygonPath::Enclosed => {
-            list.append_figure(Figure::from_polygon(*cut_polygon, "none", "red", 2))
-        }
+        PolygonPath::Enclosed => list.append_figure(Figure::from_polygon(
+            AnyPolygon::StaticTrianglePolygon(*cut_polygon),
+            "none",
+            "red",
+            2,
+        )),
         PolygonPath::CutSegments(segments) => {
             for segment in segments {
                 let mut points = Vec::new();

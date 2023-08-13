@@ -5,7 +5,7 @@ use triangulate::Polygon;
 use crate::generic_triangle::{TriangleCornerIterator, TriangleCornerPoint};
 use crate::geometry2d::{
     point::StaticPoint2d,
-    polygon::{AnyPolygon, Polygon2d},
+    polygon::Polygon2d,
     triangle::{Triangle2d, TrianglePointIterator},
 };
 use crate::prelude::Point2d;
@@ -78,10 +78,6 @@ impl<Pt: Point2d> Polygon2d<Pt> for StaticTriangle2d<Pt> {
 
     fn point_count(&self) -> usize {
         3
-    }
-
-    fn to_any_polygon(self) -> AnyPolygon<Pt> {
-        AnyPolygon::StaticTrianglePolygon(self)
     }
 
     fn get_point(&self, idx: usize) -> Option<&'_ Pt> {

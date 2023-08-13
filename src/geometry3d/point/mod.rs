@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use ordered_float::OrderedFloat;
 use stl_io::Vertex;
+pub mod bounding_box;
 
 use crate::geometry3d::Vector3d;
 use crate::primitives::Number;

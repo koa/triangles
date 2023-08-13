@@ -19,6 +19,7 @@ stl_io = "0.7.0"
 svg = "0.13.1"
 criterion = { version = "0.5.1", features = ["html_reports"] }
 rand = "0.8.5"
+approx = "0.5.1"
 
 [[bench]]
 name = "pt_inside_triangle"

@@ -451,6 +451,16 @@ pub struct TrianglePointIterator<'a, T: Triangle2d<Pt>, Pt: Point2d> {
     state: TriangleIteratorState,
 }
 
+impl<'a, T: Triangle2d<Pt>, Pt: Point2d> TrianglePointIterator<'a, T, Pt> {
+    pub fn new(triangle: &'a T) -> Self {
+        Self {
+            phantom: Default::default(),
+            triangle,
+            state: TriangleIteratorState::P1,
+        }
+    }
+}
+
 #[derive(Default, Debug, Copy, Clone)]
 enum TriangleIteratorState {
     #[default]

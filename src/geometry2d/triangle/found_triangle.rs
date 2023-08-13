@@ -4,10 +4,7 @@ use std::marker::PhantomData;
 use triangulate::Vertex;
 
 use crate::geometry2d::triangle::{TriangleCornerPoint, TrianglePointIterator, TriangleSide};
-use crate::prelude::AnyPolygon::StaticTrianglePolygon;
-use crate::prelude::{
-    AnyPolygon, Number, Point2d, Polygon2d, StaticPoint2d, StaticTriangle2d, Triangle2d,
-};
+use crate::prelude::{Number, Point2d, Polygon2d, StaticPoint2d, StaticTriangle2d, Triangle2d};
 
 pub fn found_original_triangle<
     't,
@@ -90,14 +87,6 @@ impl<
 
     fn point_count(&self) -> usize {
         3
-    }
-
-    fn to_any_polygon(self) -> AnyPolygon<FoundPoint<'t, PointTriangle, PointPolygon, T, P>> {
-        StaticTrianglePolygon(StaticTriangle2d::new(
-            self.p1().clone(),
-            self.p2().clone(),
-            self.p3().clone(),
-        ))
     }
 
     fn get_point(&self, idx: usize) -> Option<&FoundPoint<'t, PointTriangle, PointPolygon, T, P>> {
