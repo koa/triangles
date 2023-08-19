@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use num_traits::Zero;
+use ordered_float::OrderedFloat;
 use thiserror::Error;
 
 use crate::{
-    geometry2d::polygon::Polygon2d,
     geometry3d::{
         line::{static_line::PointLine3d, Line3d},
         plane::{InvalidPlane, Plane3d},
@@ -17,10 +17,13 @@ use crate::{
     primitives::Number,
 };
 
+pub mod triangle_group;
+
 pub struct TriangleTopology<'a, P: Point3d> {
     //triangles: &'a IndexedTriangleList<P>,
     edge_neighbors: HashMap<PointLine3d<IndexedPoint<'a, P>>, [ReferencedTriangle<'a, P>; 2]>,
     triangles_of_plane: HashMap<Plane3d, Vec<ReferencedTriangle<'a, P>>>,
+    plane_groups: HashMap<Plane3d, Vec<Plane3d>>,
 }
 
 impl<'a, P: Point3d> TriangleTopology<'a, P> {
@@ -64,10 +67,13 @@ impl<'a, P: Point3d> TriangleTopology<'a, P> {
         for (edge, result) in collecting_neighbors {
             edge_neighbors.insert(edge, result.triangles_tuple()?);
         }
+        let plane_groups = group_planes(&triangles_of_plane);
+
         Ok(Self {
             //triangles,
             edge_neighbors,
             triangles_of_plane,
+            plane_groups,
         })
     }
 
@@ -106,6 +112,10 @@ impl<'a, P: Point3d> TriangleTopology<'a, P> {
             }
         }
         None
+    }
+
+    pub fn plane_groups(&self) -> &HashMap<Plane3d, Vec<Plane3d>> {
+        &self.plane_groups
     }
 }
 
@@ -174,30 +184,53 @@ impl<'a, P: Point3d> LineNeighbors<'a, P> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use std::fs::OpenOptions;
-
-    use crate::geometry3d::point::bounding_box::BoundingBox3d;
-    use crate::prelude::{point_3d, IndexedTriangleList, Point3d, StaticLine3d, TriangleTopology};
-
-    #[test]
-    fn test_intersect() {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open("test/Schublade - Front.stl")
-            .unwrap();
-        let stl = stl_io::read_stl(&mut file).unwrap();
-        let triangle_list: IndexedTriangleList<_> = stl.clone().into();
-        let topolgy = TriangleTopology::new(&triangle_list).expect("Error on topology");
-        let mut bbox: BoundingBox3d = Default::default();
-        for p in triangle_list.points.iter() {
-            bbox += p.coordinates();
+fn group_planes<P: Point3d>(
+    triangles: &HashMap<Plane3d, Vec<ReferencedTriangle<P>>>,
+) -> HashMap<Plane3d, Vec<Plane3d>> {
+    let mut planes = Vec::with_capacity(triangles.len());
+    for first_plane in triangles.keys() {
+        let mut density = 0.0;
+        for second_plane in triangles.keys() {
+            if first_plane == second_plane {
+                continue;
+            }
+            let dist = first_plane.dist_square(second_plane);
+            /*if dist > (100.0 * f32::EPSILON) as f64 {
+                continue;
+            }*/
+            density += 1.0 / dist.0;
         }
-        dbg!(bbox);
-
-        let line = StaticLine3d::new(point_3d(0.0, 100.0, 100.0), point_3d(0.0, -1.0, 0.0));
-        let option = topolgy.find_first_intersection(&line);
-        dbg!(option);
+        //println!("Plane: {first_plane:?}: {density}");
+        planes.push((density, first_plane));
     }
+    planes.sort_by_key(|(d, _)| OrderedFloat::from(-*d));
+
+    let mut remaining_planes: HashSet<_> = triangles.keys().collect();
+    let mut grouped_planes = HashMap::new();
+    const PLANE_GROUP_THRESHOLD: f64 = 500.0 * f64::EPSILON;
+
+    for (_, plane) in planes {
+        if !remaining_planes.remove(plane) {
+            continue;
+        }
+        let mut neighbors = vec![*plane];
+        let mut max_dist: f64 = 0.0;
+        for candidate in remaining_planes.iter() {
+            let x = plane.dist_square(candidate).0;
+            if x < PLANE_GROUP_THRESHOLD {
+                //println!("  {}: {candidate:?}: {x}", PLANE_GROUP_THRESHOLD / x);
+                max_dist = max_dist.max(x);
+                neighbors.push(**candidate);
+            }
+        }
+        for p in neighbors.iter() {
+            remaining_planes.remove(p);
+        }
+
+        grouped_planes.insert(*plane, neighbors);
+    }
+    grouped_planes
 }
+
+#[cfg(test)]
+mod test;

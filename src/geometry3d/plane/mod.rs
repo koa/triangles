@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use num_traits::Zero;
+use ordered_float::OrderedFloat;
 use thiserror::Error;
 use vek::Vec3;
 
@@ -39,6 +40,10 @@ impl Plane3d {
     #[inline]
     pub fn normal(&self) -> Vector3d {
         self.normal
+    }
+
+    pub fn dist_square(&self, other: &Plane3d) -> OrderedFloat<f64> {
+        self.normal.dist_square(&other.normal) + (self.distance - other.distance).powi(2)
     }
 
     pub fn intersect_line_at<L: Line3d<P>, P: Point3d>(&self, line: &L) -> Number {
@@ -80,6 +85,10 @@ impl Plane3d {
     pub fn point_distance<P: Point3d>(&self, p: &P) -> Number {
         self.normal
             .dot(p.coordinates() - (self.normal * self.distance))
+    }
+    #[inline]
+    pub fn distance(&self) -> Number {
+        self.distance
     }
 }
 fn intersect_line(

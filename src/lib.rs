@@ -3,6 +3,7 @@ mod geometry2d;
 mod geometry3d;
 mod io;
 mod primitives;
+pub mod test;
 pub mod prelude {
     pub use crate::{
         geometry2d::{

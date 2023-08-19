@@ -22,5 +22,5 @@ rand = "0.8.5"
 approx = "0.5.1"
 
 [[bench]]
-name = "pt_inside_triangle"
+name = "benchmarks"
 harness = false

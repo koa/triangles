@@ -2,6 +2,7 @@ use vek::Vec3;
 
 use crate::geometry3d::line::Line3d;
 use crate::geometry3d::point::Point3d;
+use crate::geometry3d::triangles::indexed_point::IndexedPoint;
 use crate::primitives::Number;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -44,6 +45,22 @@ pub struct PointLine3d<P: Point3d> {
     p2: P,
 }
 
+impl<'a, P: Point3d> PointLine3d<IndexedPoint<'a, P>> {
+    pub fn normal(self) -> (Self, bool) {
+        if self.p1.idx() < self.p2.idx() {
+            (self, false)
+        } else {
+            (
+                Self {
+                    p1: self.p2,
+                    p2: self.p1,
+                },
+                true,
+            )
+        }
+    }
+}
+
 impl<P: Point3d> Line3d<P> for PointLine3d<P> {
     fn p1(&self) -> P {
         self.p1.clone()
@@ -57,5 +74,11 @@ impl<P: Point3d> Line3d<P> for PointLine3d<P> {
 impl<P: Point3d> PointLine3d<P> {
     pub fn new(p1: P, p2: P) -> Self {
         Self { p1, p2 }
+    }
+    pub fn reverse(self) -> PointLine3d<P> {
+        Self {
+            p1: self.p2,
+            p2: self.p1,
+        }
     }
 }

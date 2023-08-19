@@ -3,6 +3,8 @@ use ordered_float::OrderedFloat;
 use rand::prelude::ThreadRng;
 use rand::Rng;
 
+use triangles::prelude::{Polygon2d, StaticPoint2d, StaticTriangle2d, Triangle2d};
+
 fn create_triangles(count: usize, random: &mut ThreadRng) -> Vec<StaticTriangle2d<StaticPoint2d>> {
     let mut ret = Vec::with_capacity(count);
     while ret.len() < count {
@@ -26,6 +28,7 @@ fn triangle_contains(triangles: &[StaticTriangle2d<StaticPoint2d>], points: &[St
         }
     }
 }
+
 fn polygon_contains(triangles: &[StaticTriangle2d<StaticPoint2d>], points: &[StaticPoint2d]) {
     for triangle in triangles {
         for point in points {
@@ -33,19 +36,15 @@ fn polygon_contains(triangles: &[StaticTriangle2d<StaticPoint2d>], points: &[Sta
         }
     }
 }
-use triangles::prelude::{Polygon2d, StaticPoint2d, StaticTriangle2d, Triangle2d};
 
-fn criterion_benchmark(c: &mut Criterion) {
+pub fn append_benches(c: &mut Criterion) {
     let mut random = rand::thread_rng();
-    let triangles = create_triangles(500, &mut random);
-    let points: Vec<_> = (0..100).map(|_| random_pt(&mut random)).collect();
-    c.bench_function("triangle_contains_pt", |b| {
+    let triangles = create_triangles(50, &mut random);
+    let points: Vec<_> = (0..10).map(|_| random_pt(&mut random)).collect();
+    c.bench_function("500 triangle_contains_pt", |b| {
         b.iter(|| triangle_contains(&triangles, &points))
     });
-    c.bench_function("polygon_contains_pt", |b| {
+    c.bench_function("500 polygon_contains_pt", |b| {
         b.iter(|| polygon_contains(&triangles, &points))
     });
 }
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);

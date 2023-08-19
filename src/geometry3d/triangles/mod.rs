@@ -216,21 +216,16 @@ impl<P: Point3d> From<IndexedTriangleList<P>> for IndexedMesh {
 }
 #[cfg(test)]
 mod test {
-    use std::fs::OpenOptions;
-
     use itertools::Itertools;
     use stl_io::IndexedMesh;
 
     use crate::geometry3d::triangles::topology::TriangleTopology;
     use crate::geometry3d::triangles::IndexedTriangleList;
+    use crate::test::load_schublade;
 
     #[test]
     fn test_load_and_store() {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open("test/Schublade - Front.stl")
-            .unwrap();
-        let stl = stl_io::read_stl(&mut file).unwrap();
+        let stl = load_schublade();
         let triangle_list: IndexedTriangleList<_> = stl.clone().into();
         let topolgy = TriangleTopology::new(&triangle_list).expect("Error on topology");
         println!("Triangle count: {}", triangle_list.triangles().len());
