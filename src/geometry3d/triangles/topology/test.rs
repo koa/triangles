@@ -23,16 +23,6 @@ fn test_intersect() {
     dbg!(option);
 }
 
-#[test]
-fn test_find_planes() {
-    let triangle_list: IndexedTriangleList<_> = load_schublade_as_triangles();
-    let topology = TriangleTopology::new(&triangle_list).expect("Error on topology");
-    let triangles = topology.triangles_of_plane();
-
-    let grouped_planes = group_planes(triangles);
-    println!("Group count: {}", grouped_planes.len());
-}
-
 fn group_planes<'a>(
     triangles: &'a HashMap<Plane3d, Vec<ReferencedTriangle<Vector<f32>>>>,
 ) -> HashMap<&'a Plane3d, Vec<&'a Plane3d>> {

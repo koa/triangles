@@ -233,14 +233,15 @@ mod test {
         let stats = topolgy
             .triangles_of_plane()
             .values()
-            .map(|tr| tr.len())
+            .map(|tr| tr.triangles().len())
             .counts();
         for (triangle_count, plane_count) in stats {
             println!("{plane_count} Planes with {triangle_count} Triangles");
         }
-        for (plane, triangles) in topolgy.triangles_of_plane() {
-            if triangles.len() > 3 {
-                println!("Plane: {:?}: {}", plane, triangles.len())
+        for (plane, triangle_group) in topolgy.triangles_of_plane() {
+            let triangle_count = triangle_group.triangles().len();
+            if triangle_count > 3 {
+                println!("Plane: {:?}: {}", plane, triangle_count)
             }
         }
 

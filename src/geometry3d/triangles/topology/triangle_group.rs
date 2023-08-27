@@ -1,13 +1,11 @@
-use ordered_float::OrderedFloat;
-use std::collections::{HashMap, HashSet};
-use stl_io::Vector;
+use std::collections::HashSet;
 
 use crate::geometry3d::line::static_line::PointLine3d;
 use crate::geometry3d::triangles::indexed_point::IndexedPoint;
-use crate::prelude::{Line3d, Plane3d, Point3d, ReferencedTriangle, Triangle3d};
+use crate::prelude::{Line3d, Point3d, ReferencedTriangle, Triangle3d};
 
 #[derive(Debug, Clone, Default)]
-struct TriangleGroup<'a, P: Point3d> {
+pub struct TriangleGroup<'a, P: Point3d> {
     triangles: Vec<ReferencedTriangle<'a, P>>,
     edges: Vec<Vec<PointLine3d<IndexedPoint<'a, P>>>>,
 }
@@ -66,7 +64,7 @@ mod test {
         let triangles = load_schublade_as_triangles();
         let topology = TriangleTopology::new(&triangles).expect("Topology error");
         for (plane, triangles) in topology.triangles_of_plane {
-            let group = TriangleGroup::new(triangles);
+            let group = TriangleGroup::new(triangles.triangles().clone());
             println!("Plane: {},{}", plane.normal(), plane.distance());
             for edge in group.edges {
                 let points: Vec<_> = edge.iter().map(|l| l.p1()).map(|p| p.idx()).collect();
